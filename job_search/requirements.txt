@@ -1,0 +1,10 @@
+# Job Search Tool — Python dependencies
+
+# Core job scraping (LinkedIn, Indeed, Glassdoor, ZipRecruiter, Google Jobs)
+python-jobspy>=0.1.10
+
+# Terminal UI
+rich>=13.0
+
+# Data handling (used by jobspy internally + our CSV export)
+pandas>=2.0

@@ -1,0 +1,29 @@
+# LaTeX build artifacts
+main.aux
+main.fdb_latexmk
+main.fls
+main.log
+main.out
+main.fls
+*.synctex.gz
+
+# Job search output files (timestamped reports)
+jobs_*.csv
+jobs_*.html
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Temp / editor files
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Python virtual envs
+.venv/
+venv/
+env/
