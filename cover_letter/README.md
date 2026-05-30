@@ -7,10 +7,12 @@ Generates a tailored, ATS-friendly cover letter by matching your CV against a jo
 ## Quick Start
 
 ```powershell
-# Web UI — browse job report, pick a job, click Generate
+# Web UI — two tabs: pick from job report CSV, or paste any job URL
 wsl bash cover_letter/run.sh web
 ```
-Opens **http://localhost:5051** in your browser.
+Opens **http://localhost:5051** — two tabs:
+- **📋 From Report** — select a `jobs_*.csv` file, browse ranked jobs, click Generate
+- **🔗 From URL** — paste any job URL (LinkedIn, Indeed, company site), click Fetch then Generate
 
 ```powershell
 # CLI — from a job URL

@@ -7,10 +7,15 @@ Track every application, update its status, and always know what is pending.
 ## Quick Start
 
 ```powershell
-# Web UI — view pipeline, add from job report, update status in browser
+# Web UI — view pipeline, add applications, update status in browser
 wsl bash log/run.sh web
 ```
-Opens **http://localhost:5050** in your browser.
+Opens **http://localhost:5050** — features:
+- **Pipeline summary bar** — counts per status at a glance
+- **Add modal** with two input methods:
+  - **📋 From Job Report** — select a `jobs_*.csv` file, browse ranked jobs, click Add
+  - **🔗 From URL** — paste any job URL → auto-fetches title, company, location
+- **Edit / Delete** — update status, add notes, full history per application
 
 ```powershell
 # CLI — interactive dashboard

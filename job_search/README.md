@@ -2,11 +2,22 @@
 
 Reads your `main.tex` CV, searches **LinkedIn · Indeed · Glassdoor · Google Jobs** for matching roles, scores each listing against your skills, and ranks them so you know exactly where to apply first.
 
+Two modes: **region search** (broad sweep across a country) and **company search** (all roles at one specific company, ranked by fit).
+
 ---
 
 ## Quick Start
 
-**From Windows PowerShell (uses WSL Ubuntu):**
+### Web UI (recommended)
+```powershell
+wsl bash job_search/run_job_search.sh web
+```
+Opens **http://localhost:5052** — three tabs:
+- **🌍 Region Search** — pick region, stream live progress, view ranked table
+- **🏢 Company Search** — type any company name (e.g. `Sereact`), see all their roles ranked by CV fit
+- **📂 Browse Results** — load any saved `jobs_*.csv` report
+
+### CLI — Region search
 ```powershell
 # Interactive — prompts you to pick regions
 wsl bash job_search/run_job_search.sh
@@ -17,9 +28,19 @@ wsl bash job_search/run_job_search.sh --region Germany Switzerland Netherlands
 wsl bash job_search/run_job_search.sh --region India Germany --top 50
 ```
 
+### CLI — Company search
+```powershell
+# Find all roles at a specific company, ranked by your CV fit
+wsl bash job_search/run_job_search.sh --company Sereact
+wsl bash job_search/run_job_search.sh --company "Boston Dynamics" --region USA
+wsl bash job_search/run_job_search.sh --company KUKA --region Germany --top 20
+```
+
 **From a WSL terminal:**
 ```bash
 bash job_search/run_job_search.sh --region Germany
+bash job_search/run_job_search.sh --company Sereact
+bash job_search/run_job_search.sh web
 ```
 
 ---
@@ -38,16 +59,17 @@ bash job_search/run_job_search.sh --region Germany
 
 ---
 
-## All Options
+## All CLI Options
 
 ```
 --region   Germany Switzerland ...   Regions to search (omit for interactive menu)
+--company  Sereact                   Search all roles at a specific company (skips region search)
 --cv       /path/to/main.tex         CV path (auto-detected if omitted)
---top      40                        Top N results per region  (default: 40)
+--top      40                        Top N results to show  (default: 40)
 --per-term 15                        Results fetched per search term (default: 15)
 --hours    504                       Max age of listings in hours (default: 504 = 3 weeks)
 --sites    linkedin indeed glassdoor google   Sites to query
---no-export                          Skip saving CSV + HTML reports
+--no-export                          Skip saving CSV report
 --open                               Auto-open HTML report in browser
 ```
 
@@ -88,12 +110,14 @@ After each run, two files are saved next to `main.tex`:
 
 ```
 job_search/
-├── main.py              ← Entry point / CLI
+├── web.py               ← Flask web server (http://localhost:5052)
+├── index.html           ← SPA — Region Search, Company Search, Browse Results tabs
+├── main.py              ← CLI entry point
 ├── cv_parser.py         ← Parses main.tex, extracts skills & keywords
-├── searcher.py          ← Queries LinkedIn, Indeed, Glassdoor, Google Jobs
+├── searcher.py          ← Queries LinkedIn, Indeed, Glassdoor, Google Jobs; company search
 ├── scorer.py            ← Scores & ranks job listings against CV profile
 ├── requirements.txt     ← Python dependencies
-├── run_job_search.sh    ← Bash launcher (auto-installs deps)
+├── run_job_search.sh    ← Bash launcher (auto-installs deps; `web` subcommand starts UI)
 └── README.md            ← This file
 ```
 
