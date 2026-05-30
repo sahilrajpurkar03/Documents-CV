@@ -6,13 +6,12 @@
 #   wsl bash job_search/run_job_search.sh --company Sereact
 #   wsl bash job_search/run_job_search.sh web        # open web UI at http://localhost:5052
 
-set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CV_PATH="$(dirname "$SCRIPT_DIR")/main.tex"
 
 echo "Installing / updating dependencies..."
-python3 -m pip install -q -r "$SCRIPT_DIR/requirements.txt"
-python3 -m pip install -q flask
+python3 -m pip install -q -r "$SCRIPT_DIR/requirements.txt" || true
+python3 -m pip install -q flask || true
 
 echo ""
 if [ "$1" = "web" ]; then
