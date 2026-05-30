@@ -63,7 +63,7 @@ Every letter follows the same 4-paragraph format — only content slots change:
 | 1 | **Opening** | Job title, company, top 3 matched skills |
 | 2 | **Experience** | Most relevant roles from CV (Porsche internship ranked first) |
 | 3 | **Projects / Thesis** | Most relevant projects matched to job keywords |
-| 4 | **Closing** | Fixed — Dortmund location, no relocation, availability date |
+| 4 | **Closing** | Fixed — Mönsheim location, open to relocation across Germany, availability date |
 
 ---
 
