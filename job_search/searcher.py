@@ -215,3 +215,74 @@ def search_jobs(
     if verbose:
         print(f"\n  Found {len(all_listings)} unique listings.")
     return all_listings
+
+
+def search_company(
+    company_name: str,
+    region_name: str = "Germany",
+    results: int = 50,
+    sites: Optional[List[str]] = None,
+    verbose: bool = True,
+) -> List[JobListing]:
+    """
+    Search all open roles at a specific company, ranked by CV fit score.
+    Uses a broad search term so we catch all roles, then filters by company name.
+    """
+    try:
+        from jobspy import scrape_jobs
+    except ImportError:
+        raise ImportError("python-jobspy not installed. Run: pip install python-jobspy")
+
+    if region_name not in REGIONS:
+        region_name = "Germany"
+    region = REGIONS[region_name]
+
+    if sites is None:
+        sites = ["linkedin", "indeed", "glassdoor", "google"]
+
+    if verbose:
+        print(f"  Searching company: \"{company_name}\" [{region['flag']} {region_name}] ...", flush=True)
+
+    all_listings: List[JobListing] = []
+    seen_urls: set = set()
+
+    # Search using company name as the search term — jobspy supports this well on LinkedIn
+    for term in [company_name, f"{company_name} jobs", f"site:{company_name.lower().replace(' ', '')}.com"]:
+        try:
+            df = scrape_jobs(
+                site_name=sites,
+                search_term=company_name,
+                location=region["cities"][0],
+                results_wanted=results,
+                country_indeed=region["country_indeed"],
+                linkedin_company_ids=None,
+                linkedin_fetch_description=True,
+                verbose=0,
+            )
+            if df is not None and len(df) > 0:
+                for listing in _df_to_listings(df):
+                    if listing.url and listing.url not in seen_urls:
+                        seen_urls.add(listing.url)
+                        all_listings.append(listing)
+            break  # jobspy found results, no need to try other terms
+        except Exception as exc:
+            if verbose:
+                print(f"    [warn] {exc}")
+            continue
+
+        time.sleep(random.uniform(1.5, 3.0))
+
+    # Filter to only rows where company roughly matches (case-insensitive)
+    name_lower = company_name.lower()
+    filtered = [
+        j for j in all_listings
+        if name_lower in (j.company or "").lower()
+        or (j.company or "").lower() in name_lower
+    ]
+    # Fallback: return all if filter removes everything (some sites vary company name)
+    if not filtered:
+        filtered = all_listings
+
+    if verbose:
+        print(f"  Found {len(filtered)} listings for {company_name}.")
+    return filtered

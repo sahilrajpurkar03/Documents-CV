@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Job Search</title>
+<style>
+  :root {
+    --bg:      #0f172a;
+    --surface: #1e293b;
+    --border:  #334155;
+    --accent:  #38bdf8;
+    --text:    #e2e8f0;
+    --muted:   #94a3b8;
+    --green:   #22c55e;
+    --yellow:  #fbbf24;
+    --orange:  #f97316;
+    --purple:  #a78bfa;
+    --red:     #ef4444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* ── Header ── */
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 28px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  header h1 { font-size: 1.2rem; color: var(--accent); }
+  header .subtitle { color: var(--muted); font-size: 0.82rem; margin-top: 2px; }
+
+  /* ── Tab bar ── */
+  .tab-bar { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 28px; flex-shrink: 0; }
+  .tab-btn { padding: 11px 22px; font-size: 0.9rem; background: none; border: none; border-bottom: 3px solid transparent; color: var(--muted); cursor: pointer; transition: color .15s, border-color .15s; }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-btn:hover { color: var(--text); }
+  .tab-panel { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+  .tab-panel.active { display: flex; }
+
+  /* ── Control panels ── */
+  .ctrl-bar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 28px; display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; flex-shrink: 0; }
+  .ctrl-group { display: flex; flex-direction: column; gap: 5px; }
+  .ctrl-group label { color: var(--muted); font-size: 0.78rem; }
+  .ctrl-group select, .ctrl-group input { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 6px; font-size: 0.88rem; }
+  .ctrl-group select:focus, .ctrl-group input:focus { outline: none; border-color: var(--accent); }
+  .btn { padding: 8px 20px; border-radius: 6px; font-size: 0.9rem; cursor: pointer; border: none; transition: opacity .15s; }
+  .btn:hover:not(:disabled) { opacity: 0.85; }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); color: #0f172a; font-weight: 700; align-self: flex-end; }
+  .btn-ghost   { background: var(--surface); color: var(--text); border: 1px solid var(--border); align-self: flex-end; }
+
+  /* ── Progress log ── */
+  #progress-wrap, #prog-company { background: var(--bg); border-bottom: 1px solid var(--border); padding: 10px 28px; font-size: 0.82rem; color: var(--muted); display: none; flex-shrink: 0; max-height: 80px; overflow-y: auto; }
+  .prog-line { margin-bottom: 2px; }
+  .prog-line.done { color: var(--green); }
+  .prog-line.err  { color: var(--red); }
+
+  /* ── Toolbar ── */
+  .result-toolbar { display: flex; align-items: center; gap: 12px; padding: 12px 28px; flex-wrap: wrap; flex-shrink: 0; }
+  .result-toolbar input { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 7px 14px; border-radius: 6px; font-size: 0.88rem; width: 220px; }
+  .result-toolbar input:focus { outline: none; border-color: var(--accent); }
+
+  /* ── Table ── */
+  .table-wrap { flex: 1; overflow: auto; padding: 0 28px 28px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.84rem; margin-top: 12px; }
+  th { background: var(--surface); color: var(--accent); padding: 9px 10px; text-align: left; position: sticky; top: 0; white-space: nowrap; cursor: pointer; user-select: none; }
+  th:hover { color: var(--text); }
+  td { padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:hover td { background: rgba(56,189,248,.04); }
+  .col-rank  { width: 36px; text-align: center; color: var(--muted); }
+  .col-score { width: 70px; text-align: center; }
+  .col-title { min-width: 200px; font-weight: 500; }
+  .col-co    { min-width: 140px; }
+  .col-loc   { min-width: 130px; color: var(--muted); font-size: 0.8rem; }
+  .col-kw    { min-width: 200px; }
+  .col-date  { width: 96px; color: var(--muted); }
+  .col-link  { width: 52px; text-align: center; }
+  a.job-link { color: var(--accent); text-decoration: none; font-size: 0.8rem; }
+  a.job-link:hover { text-decoration: underline; }
+  .kw-chip { display: inline-block; background: rgba(56,189,248,.1); color: var(--accent); border-radius: 10px; padding: 1px 7px; font-size: 0.72rem; margin: 1px; }
+  .score-bar { display: inline-block; height: 5px; border-radius: 3px; background: var(--accent); margin-left: 5px; vertical-align: middle; opacity: .65; }
+
+  .q-Excellent { color: #a78bfa; font-weight: 700; }
+  .q-Very.Good { color: #38bdf8; }
+  .q-Good      { color: #22c55e; }
+  .q-Fair      { color: #fbbf24; }
+  .q-Low       { color: #f87171; }
+
+  /* ── Empty ── */
+  .empty-msg { text-align: center; padding: 60px 24px; color: var(--muted); font-size: 0.9rem; }
+  .spinner { display: inline-block; width: 20px; height: 20px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── File load bar (Browse tab) ── */
+  #browse-file-bar { padding: 14px 28px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 14px; flex-shrink: 0; flex-wrap: wrap; }
+  #browse-file-sel { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 7px 12px; border-radius: 6px; font-size: 0.88rem; min-width: 280px; }
+  #browse-file-sel:focus { outline: none; border-color: var(--accent); }
+
+  /* ── Toast ── */
+  #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--green); color: #fff; padding: 10px 24px; border-radius: 6px; font-size: 0.88rem; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 200; white-space: nowrap; }
+  #toast.show { opacity: 1; }
+  #toast.err  { background: var(--red); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🔍 Job Search</h1>
+    <div class="subtitle">Sahil Sanjay Rajpurkar · Ranked by CV fit · Export to CSV</div>
+  </div>
+</header>
+
+<!-- ── Tab bar ── -->
+<div class="tab-bar">
+  <button class="tab-btn active" id="tab-region-btn" onclick="switchTab('region')">🌍 Region Search</button>
+  <button class="tab-btn" id="tab-company-btn" onclick="switchTab('company')">🏢 Company Search</button>
+  <button class="tab-btn" id="tab-browse-btn" onclick="switchTab('browse')">📂 Browse Results</button>
+</div>
+
+<!-- ═══════════════════════════ REGION SEARCH ════════════════════════════ -->
+<div class="tab-panel active" id="tab-region">
+  <div class="ctrl-bar">
+    <div class="ctrl-group">
+      <label>Region</label>
+      <select id="r-region"></select>
+    </div>
+    <div class="ctrl-group">
+      <label>Top N results</label>
+      <select id="r-top">
+        <option value="20">20</option>
+        <option value="40" selected>40</option>
+        <option value="60">60</option>
+        <option value="100">100</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label>Results per term</label>
+      <select id="r-per-term">
+        <option value="10">10</option>
+        <option value="15" selected>15</option>
+        <option value="25">25</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label>Max age</label>
+      <select id="r-hours">
+        <option value="72">3 days</option>
+        <option value="168">1 week</option>
+        <option value="504" selected>3 weeks</option>
+        <option value="1440">2 months</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" id="r-search-btn" onclick="startRegionSearch()">Search ↗</button>
+    <button class="btn btn-ghost" id="r-stop-btn" onclick="stopSearch()" style="display:none">⏹ Stop</button>
+  </div>
+  <div id="progress-wrap"></div>
+  <div class="result-toolbar" id="r-toolbar" style="display:none">
+    <input id="r-filter" type="text" placeholder="Filter results…" oninput="filterResults('r')">
+    <span id="r-count" style="color:var(--muted);font-size:0.82rem;margin-left:auto"></span>
+    <span id="r-saved" style="color:var(--green);font-size:0.82rem"></span>
+  </div>
+  <div class="table-wrap" id="r-table-wrap">
+    <div class="empty-msg" id="r-empty">Run a search to see ranked results here.</div>
+    <table id="r-table" style="display:none">
+      <thead><tr>
+        <th class="col-rank">#</th>
+        <th class="col-score" onclick="sortResults('r','score')">Score ↕</th>
+        <th class="col-title" onclick="sortResults('r','title')">Title ↕</th>
+        <th class="col-co" onclick="sortResults('r','company')">Company ↕</th>
+        <th class="col-loc">Location</th>
+        <th class="col-kw">Matched Keywords</th>
+        <th class="col-date" onclick="sortResults('r','date_posted')">Posted ↕</th>
+        <th class="col-link">Link</th>
+      </tr></thead>
+      <tbody id="r-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════════════════════ COMPANY SEARCH ════════════════════════════ -->
+<div class="tab-panel" id="tab-company">
+  <div class="ctrl-bar">
+    <div class="ctrl-group" style="flex:1;min-width:200px">
+      <label>Company name</label>
+      <input id="c-company" type="text" placeholder="e.g. Sereact, KUKA, Bosch, Boston Dynamics…"
+             onkeydown="if(event.key==='Enter') startCompanySearch()">
+    </div>
+    <div class="ctrl-group">
+      <label>Region</label>
+      <select id="c-region"></select>
+    </div>
+    <div class="ctrl-group">
+      <label>Top N</label>
+      <select id="c-top">
+        <option value="20">20</option>
+        <option value="40" selected>40</option>
+        <option value="60">60</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" id="c-search-btn" onclick="startCompanySearch()">Search ↗</button>
+    <button class="btn btn-ghost" id="c-stop-btn" onclick="stopCompanySearch()" style="display:none">⏹ Stop</button>
+  </div>
+  <div id="prog-company"></div>
+  <div class="result-toolbar" id="c-toolbar" style="display:none">
+    <input id="c-filter" type="text" placeholder="Filter results…" oninput="filterResults('c')">
+    <span id="c-count" style="color:var(--muted);font-size:0.82rem;margin-left:auto"></span>
+    <span id="c-saved" style="color:var(--green);font-size:0.82rem"></span>
+  </div>
+  <div class="table-wrap" id="c-table-wrap">
+    <div class="empty-msg" id="c-empty">Enter a company name and click Search.</div>
+    <table id="c-table" style="display:none">
+      <thead><tr>
+        <th class="col-rank">#</th>
+        <th class="col-score" onclick="sortResults('c','score')">Score ↕</th>
+        <th class="col-title" onclick="sortResults('c','title')">Title ↕</th>
+        <th class="col-co">Company</th>
+        <th class="col-loc">Location</th>
+        <th class="col-kw">Matched Keywords</th>
+        <th class="col-date" onclick="sortResults('c','date_posted')">Posted ↕</th>
+        <th class="col-link">Link</th>
+      </tr></thead>
+      <tbody id="c-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ BROWSE RESULTS ═══════════════════════════ -->
+<div class="tab-panel" id="tab-browse">
+  <div id="browse-file-bar">
+    <label style="color:var(--muted);font-size:0.85rem">Saved report:</label>
+    <select id="browse-file-sel" onchange="loadBrowseFile()">
+      <option value="">— select a file —</option>
+    </select>
+    <span id="browse-count" style="color:var(--muted);font-size:0.82rem"></span>
+    <input id="b-filter" type="text" placeholder="Filter…" oninput="filterResults('b')" style="margin-left:auto;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:7px 12px;border-radius:6px;font-size:0.88rem;width:200px">
+  </div>
+  <div class="table-wrap">
+    <div class="empty-msg" id="b-empty">Select a saved report above.</div>
+    <table id="b-table" style="display:none">
+      <thead><tr>
+        <th class="col-rank">#</th>
+        <th class="col-score" onclick="sortResults('b','score')">Score ↕</th>
+        <th class="col-title" onclick="sortResults('b','title')">Title ↕</th>
+        <th class="col-co" onclick="sortResults('b','company')">Company ↕</th>
+        <th class="col-loc">Location</th>
+        <th class="col-kw">Matched Keywords</th>
+        <th class="col-date" onclick="sortResults('b','date_posted')">Posted ↕</th>
+        <th class="col-link">Link</th>
+      </tr></thead>
+      <tbody id="b-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+const DATA   = { r: [], c: [], b: [] };
+const SORTED = { r: { col: 'score', asc: false }, c: { col: 'score', asc: false }, b: { col: 'score', asc: false } };
+let rSSE = null, cSSE = null;
+
+// ── Init ───────────────────────────────────────────────────────────────────
+async function init() {
+  const res     = await fetch('/api/regions');
+  const regions = await res.json();
+  ['r-region','c-region'].forEach(id => {
+    document.getElementById(id).innerHTML =
+      regions.map(r => `<option value="${esc(r.name)}">${r.flag} ${esc(r.name)}</option>`).join('');
+  });
+
+  const filesRes = await fetch('/api/job-files');
+  const files    = await filesRes.json();
+  const sel      = document.getElementById('browse-file-sel');
+  if (files.length) {
+    sel.innerHTML = '<option value="">— select a file —</option>' +
+      files.map(f => `<option value="${esc(f)}">${esc(f)}</option>`).join('');
+    sel.value = files[0];
+    loadBrowseFile();
+  }
+}
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`tab-${tab}-btn`).classList.add('active');
+  document.getElementById(`tab-${tab}`).classList.add('active');
+}
+
+// ── Region search ──────────────────────────────────────────────────────────
+function startRegionSearch() {
+  if (rSSE) { rSSE.close(); rSSE = null; }
+  const region   = document.getElementById('r-region').value;
+  const top_n    = document.getElementById('r-top').value;
+  const per_term = document.getElementById('r-per-term').value;
+  const hours    = document.getElementById('r-hours').value;
+
+  document.getElementById('r-search-btn').disabled = true;
+  document.getElementById('r-stop-btn').style.display = 'inline-block';
+  document.getElementById('r-saved').textContent = '';
+  const progWrap = document.getElementById('progress-wrap');
+  progWrap.style.display = 'block';
+  progWrap.innerHTML = '';
+  setEmpty('r', '<span class="spinner"></span> Searching…');
+
+  fetch('/api/search', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ region, top_n: +top_n, per_term: +per_term, hours_old: +hours }),
+  }).then(res => {
+    if (!res.ok) { showToast('Search failed.', true); return; }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    function pump() {
+      reader.read().then(({ done, value }) => {
+        if (done) { finishRegionSearch(); return; }
+        buf += decoder.decode(value, { stream: true });
+        const parts = buf.split('\n\n');
+        buf = parts.pop();
+        parts.forEach(part => {
+          if (!part.startsWith('data:')) return;
+          try {
+            const obj = JSON.parse(part.slice(5).trim());
+            handleRegionEvent(obj);
+          } catch(e) {}
+        });
+        pump();
+      });
+    }
+    pump();
+  }).catch(e => { showToast('Network error: ' + e.message, true); finishRegionSearch(); });
+}
+
+function handleRegionEvent(obj) {
+  const prog = document.getElementById('progress-wrap');
+  if (obj.type === 'status' || obj.type === 'progress') {
+    const d = document.createElement('div');
+    d.className = 'prog-line';
+    d.textContent = obj.text;
+    prog.appendChild(d);
+    prog.scrollTop = prog.scrollHeight;
+  } else if (obj.type === 'done') {
+    DATA.r = obj.jobs || [];
+    renderTable('r', DATA.r);
+    document.getElementById('r-saved').textContent = obj.csv_file ? `Saved: ${obj.csv_file}` : '';
+    const d = document.createElement('div');
+    d.className = 'prog-line done';
+    d.textContent = `✓ Done — ${DATA.r.length} ranked jobs`;
+    prog.appendChild(d);
+    finishRegionSearch();
+    showToast(`Found ${DATA.r.length} jobs!`);
+  } else if (obj.type === 'error') {
+    const d = document.createElement('div');
+    d.className = 'prog-line err';
+    d.textContent = '✕ ' + obj.text;
+    prog.appendChild(d);
+    finishRegionSearch();
+    showToast(obj.text, true);
+  }
+}
+
+function finishRegionSearch() {
+  document.getElementById('r-search-btn').disabled = false;
+  document.getElementById('r-stop-btn').style.display = 'none';
+}
+
+function stopSearch() {
+  if (rSSE) { rSSE.close(); rSSE = null; }
+  finishRegionSearch();
+  showToast('Search stopped.');
+}
+
+// ── Company search ─────────────────────────────────────────────────────────
+function startCompanySearch() {
+  const company = document.getElementById('c-company').value.trim();
+  if (!company) { showToast('Enter a company name.', true); return; }
+  if (cSSE) { cSSE.close(); cSSE = null; }
+
+  const region = document.getElementById('c-region').value;
+  const top_n  = document.getElementById('c-top').value;
+
+  document.getElementById('c-search-btn').disabled = true;
+  document.getElementById('c-stop-btn').style.display = 'inline-block';
+  document.getElementById('c-saved').textContent = '';
+  const prog = document.getElementById('prog-company');
+  prog.style.display = 'block';
+  prog.innerHTML = '';
+  setEmpty('c', `<span class="spinner"></span> Searching ${esc(company)}…`);
+
+  fetch('/api/search-company', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ company, region, top_n: +top_n }),
+  }).then(res => {
+    if (!res.ok) { showToast('Search failed.', true); return; }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    function pump() {
+      reader.read().then(({ done, value }) => {
+        if (done) { finishCompanySearch(); return; }
+        buf += decoder.decode(value, { stream: true });
+        const parts = buf.split('\n\n');
+        buf = parts.pop();
+        parts.forEach(part => {
+          if (!part.startsWith('data:')) return;
+          try {
+            const obj = JSON.parse(part.slice(5).trim());
+            handleCompanyEvent(obj, company);
+          } catch(e) {}
+        });
+        pump();
+      });
+    }
+    pump();
+  }).catch(e => { showToast('Network error: ' + e.message, true); finishCompanySearch(); });
+}
+
+function handleCompanyEvent(obj, company) {
+  const prog = document.getElementById('prog-company');
+  if (obj.type === 'status' || obj.type === 'progress') {
+    const d = document.createElement('div');
+    d.className = 'prog-line';
+    d.textContent = obj.text;
+    prog.appendChild(d);
+    prog.scrollTop = prog.scrollHeight;
+  } else if (obj.type === 'done') {
+    DATA.c = obj.jobs || [];
+    renderTable('c', DATA.c);
+    document.getElementById('c-saved').textContent = obj.csv_file ? `Saved: ${obj.csv_file}` : '';
+    const d = document.createElement('div');
+    d.className = 'prog-line done';
+    d.textContent = `✓ Done — ${DATA.c.length} roles at ${company}`;
+    prog.appendChild(d);
+    finishCompanySearch();
+    showToast(DATA.c.length ? `${DATA.c.length} roles found at ${company}!` : `No roles found at ${company}.`, !DATA.c.length);
+  } else if (obj.type === 'error') {
+    const d = document.createElement('div');
+    d.className = 'prog-line err';
+    d.textContent = '✕ ' + obj.text;
+    prog.appendChild(d);
+    finishCompanySearch();
+    showToast(obj.text, true);
+  }
+}
+
+function finishCompanySearch() {
+  document.getElementById('c-search-btn').disabled = false;
+  document.getElementById('c-stop-btn').style.display = 'none';
+}
+
+function stopCompanySearch() {
+  if (cSSE) { cSSE.close(); cSSE = null; }
+  finishCompanySearch();
+  showToast('Search stopped.');
+}
+
+// ── Browse tab ─────────────────────────────────────────────────────────────
+async function loadBrowseFile() {
+  const file = document.getElementById('browse-file-sel').value;
+  if (!file) return;
+  const res = await fetch(`/api/jobs?file=${encodeURIComponent(file)}`);
+  DATA.b = await res.json();
+  document.getElementById('browse-count').textContent = `${DATA.b.length} jobs`;
+  renderTable('b', DATA.b);
+}
+
+// ── Render table ───────────────────────────────────────────────────────────
+const Q_CLASS = { 'Excellent': 'q-Excellent', 'Very Good': 'q-Good', 'Good': 'q-Good', 'Fair': 'q-Fair', 'Low': 'q-Low' };
+
+function renderTable(pfx, jobs) {
+  const filtered = applyFilter(pfx, jobs);
+  document.getElementById(`${pfx}-count`) && (document.getElementById(`${pfx}-count`).textContent = `${filtered.length} results`);
+  if (pfx !== 'b') document.getElementById(`${pfx}-toolbar`).style.display = filtered.length ? 'flex' : 'none';
+
+  const tbody = document.getElementById(`${pfx}-tbody`);
+  tbody.innerHTML = '';
+
+  if (!filtered.length) {
+    setEmpty(pfx, jobs.length ? 'No results match filter.' : (pfx === 'b' ? 'Select a saved report above.' : 'No results.'));
+    document.getElementById(`${pfx}-table`).style.display = 'none';
+    return;
+  }
+  document.getElementById(`${pfx}-empty`).style.display  = 'none';
+  document.getElementById(`${pfx}-table`).style.display  = 'table';
+
+  filtered.forEach(j => {
+    const score  = parseFloat(j.score) || 0;
+    const qCls   = Q_CLASS[j.match_quality] || 'q-Fair';
+    const chips  = (j.matched_keywords || '').split(',').filter(Boolean)
+      .map(k => `<span class="kw-chip">${esc(k.trim())}</span>`).join('');
+    const link   = j.url
+      ? `<a class="job-link" href="${esc(j.url)}" target="_blank">↗</a>` : '';
+    const bar    = `<span class="score-bar" style="width:${Math.min(score,100)*0.36}px"></span>`;
+    const tr     = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="col-rank">${j.rank}</td>
+      <td class="col-score"><span class="${qCls}">${score.toFixed(1)}</span>${bar}</td>
+      <td class="col-title">${esc(j.title)}</td>
+      <td class="col-co">${esc(j.company || '—')}</td>
+      <td class="col-loc">${esc(j.location || '—')}</td>
+      <td class="col-kw">${chips}</td>
+      <td class="col-date">${esc((j.date_posted||'').slice(0,10)||'—')}</td>
+      <td class="col-link">${link}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function applyFilter(pfx, jobs) {
+  const filterEl = document.getElementById(pfx === 'b' ? 'b-filter' : `${pfx}-filter`);
+  const q = filterEl ? filterEl.value.toLowerCase() : '';
+  let rows = q
+    ? jobs.filter(j => `${j.title} ${j.company} ${j.location} ${j.matched_keywords}`.toLowerCase().includes(q))
+    : jobs;
+  const s = SORTED[pfx];
+  rows = [...rows].sort((a, b) => {
+    let va = a[s.col] || '', vb = b[s.col] || '';
+    if (s.col === 'score') { va = +va; vb = +vb; }
+    if (va < vb) return s.asc ? -1 : 1;
+    if (va > vb) return s.asc ? 1 : -1;
+    return 0;
+  });
+  return rows;
+}
+
+function filterResults(pfx) { renderTable(pfx, DATA[pfx]); }
+
+function sortResults(pfx, col) {
+  if (SORTED[pfx].col === col) SORTED[pfx].asc = !SORTED[pfx].asc;
+  else { SORTED[pfx].col = col; SORTED[pfx].asc = false; }
+  renderTable(pfx, DATA[pfx]);
+}
+
+function setEmpty(pfx, html) {
+  const el = document.getElementById(`${pfx}-empty`);
+  if (el) { el.innerHTML = html; el.style.display = 'block'; }
+}
+
+// ── Utilities ──────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+let toastTimer;
+function showToast(msg, err=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'show' + (err ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = '', 3000);
+}
+
+init();
+</script>
+</body>
+</html>

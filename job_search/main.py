@@ -48,7 +48,7 @@ except ImportError:
     sys.exit(1)
 
 from cv_parser import parse_cv, CVProfile
-from searcher import REGIONS, DEFAULT_SEARCH_TERMS, search_jobs, JobListing
+from searcher import REGIONS, DEFAULT_SEARCH_TERMS, search_jobs, search_company, JobListing
 from scorer import rank_listings, score_label, score_color
 
 console = Console()
@@ -405,6 +405,106 @@ def run(
 
 
 # ---------------------------------------------------------------------------
+# Company search flow
+# ---------------------------------------------------------------------------
+
+def run_company(
+    company_name: str,
+    region_name: str,
+    cv_path: str,
+    top_n: int = 40,
+    export: bool = True,
+    open_html: bool = False,
+    sites: Optional[List[str]] = None,
+):
+    console.print(BANNER)
+    console.print(f"[bold cyan]Company search:[/bold cyan] [bold]{company_name}[/bold]  "
+                  f"[dim]({REGIONS.get(region_name,{}).get('flag','')} {region_name})[/dim]\n")
+
+    try:
+        cv = parse_cv(cv_path)
+    except FileNotFoundError as e:
+        console.print(f"[red]{e}[/red]"); sys.exit(1)
+
+    with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
+                  transient=True, console=console) as progress:
+        task = progress.add_task(f"Searching {company_name}...", total=None)
+        listings = search_company(
+            company_name=company_name,
+            region_name=region_name,
+            results=top_n,
+            sites=sites,
+            verbose=True,
+        )
+        progress.update(task, description="Scoring & ranking...")
+        ranked = rank_listings(listings, cv, top_n=top_n)
+
+    if not ranked:
+        console.print(f"[yellow]No listings found for '{company_name}'.[/yellow]")
+        return
+
+    console.print(Rule(f"[bold]{company_name} — {len(ranked)} roles ranked by CV fit[/bold]"))
+    table = Table(show_header=True, header_style="bold magenta", border_style="dim",
+                  row_styles=["", "dim"], expand=True)
+    table.add_column("#", width=4, justify="right")
+    table.add_column("Score", width=7, justify="center")
+    table.add_column("Match", width=10)
+    table.add_column("Job Title", min_width=32)
+    table.add_column("Location", min_width=18)
+    table.add_column("Posted", width=11)
+    table.add_column("Source", width=10)
+    for i, job in enumerate(ranked, 1):
+        color = score_color(job.score)
+        table.add_row(
+            str(i),
+            f"[{color}]{job.score:.0f}/100[/{color}]",
+            f"[{color}]{score_label(job.score)}[/{color}]",
+            job.title or "—",
+            job.location or "—",
+            job.date_posted[:10] if job.date_posted else "—",
+            job.source or "—",
+        )
+    console.print(table)
+
+    output_dir = Path(cv_path).parent
+    if export and ranked:
+        # Re-use region-name slot but include company slug in filename
+        slug = company_name.lower().replace(" ", "_")
+        ts   = datetime.now().strftime("%Y%m%d_%H%M")
+        csv_path  = output_dir / f"jobs_{slug}_{ts}.csv"
+        html_path = output_dir / f"jobs_{slug}_{ts}.html"
+
+        with open(csv_path, "w", newline="", encoding="utf-8") as f:
+            import csv as _csv
+            writer = _csv.DictWriter(f, fieldnames=[
+                "score","match_quality","title","company","location",
+                "source","date_posted","salary","matched_keywords","url",
+            ])
+            writer.writeheader()
+            for j in ranked:
+                row = j.to_dict()
+                row["match_quality"] = score_label(j.score)
+                writer.writerow(row)
+
+        # Borrow export_html for the HTML report
+        fake_region = {"flag": "🏢", "name": company_name}
+        REGIONS["_company_"] = {
+            "country_indeed": "germany", "linkedin_country": "de",
+            "cities": ["Germany"], "extra_sites": [], "currency": "EUR",
+            "flag": "🏢",
+        }
+        html_path = export_html(ranked, "_company_", output_dir, cv)
+        if "_company_" in REGIONS:
+            del REGIONS["_company_"]
+
+        console.print(f"[green]CSV :[/green] {csv_path.name}")
+        if html_path:
+            console.print(f"[green]HTML:[/green] {html_path.name}")
+            if open_html:
+                webbrowser.open(html_path.as_uri())
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -431,6 +531,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--no-export", action="store_true", help="Skip saving CSV/HTML reports")
     p.add_argument("--open", action="store_true", help="Open HTML report in browser automatically")
+    p.add_argument("--company", "-c", default=None,
+                   help="Search all roles at a specific company (e.g. --company Sereact)")
     return p
 
 
@@ -463,6 +565,19 @@ def main():
             sys.exit(1)
     else:
         regions = prompt_regions()
+
+    # ── Company search mode ───────────────────────────────────────────────
+    if args.company:
+        run_company(
+            company_name=args.company,
+            region_name=regions[0] if regions else "Germany",
+            cv_path=cv_path,
+            top_n=args.top,
+            export=not args.no_export,
+            open_html=args.open,
+            sites=args.sites,
+        )
+        return
 
     run(
         regions=regions,
