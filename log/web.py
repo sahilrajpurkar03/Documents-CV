@@ -5,10 +5,12 @@ Provides a REST API consumed by the single-page UI.
 
 from __future__ import annotations
 
+import csv
 import sys
 from pathlib import Path
 
-_DIR = Path(__file__).parent
+_DIR  = Path(__file__).parent
+_ROOT = _DIR.parent          # D:/Documents-CV
 if str(_DIR) not in sys.path:
     sys.path.insert(0, str(_DIR))
 
@@ -98,6 +100,39 @@ def api_delete(entry_id):
 @app.route("/api/summary")
 def api_summary():
     return jsonify(pending_count())
+
+
+# ── Job CSV helpers (for "Add from report" modal) ─────────────────────────
+
+@app.route("/api/job-files")
+def api_job_files():
+    files = sorted(_ROOT.glob("jobs_*.csv"), reverse=True)
+    return jsonify([f.name for f in files])
+
+
+@app.route("/api/jobs")
+def api_jobs():
+    filename = request.args.get("file", "").strip()
+    if not filename or "/" in filename or "\\" in filename or not filename.startswith("jobs_"):
+        return jsonify({"error": "Invalid filename"}), 400
+    path = _ROOT / filename
+    if not path.exists():
+        return jsonify({"error": "File not found"}), 404
+    jobs = []
+    with open(path, encoding="utf-8", newline="") as f:
+        for i, row in enumerate(csv.DictReader(f), 1):
+            jobs.append({
+                "rank":             i,
+                "score":            row.get("score", ""),
+                "match_quality":    row.get("match_quality", ""),
+                "title":            row.get("title", ""),
+                "company":          row.get("company", ""),
+                "location":         row.get("location", ""),
+                "source":           row.get("source", ""),
+                "matched_keywords": row.get("matched_keywords", ""),
+                "url":              row.get("url", ""),
+            })
+    return jsonify(jobs)
 
 
 if __name__ == "__main__":

@@ -118,6 +118,24 @@
   #toast { position: fixed; bottom: 24px; right: 24px; background: var(--green); color: #fff; padding: 10px 20px; border-radius: 6px; font-size: 0.88rem; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 200; }
   #toast.show { opacity: 1; }
   #toast.err { background: var(--red); }
+
+  /* ── Job picker (inside Add modal) ── */
+  .modal.wide { max-width: 760px; }
+  #add-file-row { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+  #add-file-sel { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 7px 12px; border-radius: 6px; font-size: 0.88rem; flex: 1; min-width: 200px; }
+  #add-file-sel:focus { outline: none; border-color: var(--accent); }
+  #add-search { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 7px 12px; border-radius: 6px; font-size: 0.88rem; width: 160px; }
+  #add-search:focus { outline: none; border-color: var(--accent); }
+  #add-table-wrap { border: 1px solid var(--border); border-radius: 6px; max-height: 280px; overflow-y: auto; margin-bottom: 14px; }
+  #add-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  #add-table th { background: var(--bg); color: var(--accent); padding: 7px 10px; text-align: left; position: sticky; top: 0; white-space: nowrap; }
+  #add-table td { padding: 6px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; cursor: pointer; }
+  #add-table tr.pick-row:hover td { background: rgba(56,189,248,.06); }
+  #add-table tr.pick-row.sel td { background: rgba(56,189,248,.14); }
+  #add-table tr.pick-row.sel td:first-child { border-left: 3px solid var(--accent); }
+  .pick-score { color: var(--green); font-weight: 600; }
+  #add-preview { font-size: 0.84rem; padding: 8px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); margin-bottom: 14px; min-height: 36px; }
+  #add-preview .pv-title { color: var(--text); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -168,11 +186,56 @@
   </div>
 </div>
 
-<!-- ── Add / Edit Modal ────────────────────────────────────────────────── -->
+<!-- ── Add from job report modal ──────────────────────────────────────── -->
 <div class="modal-bg" id="modal-add">
-  <div class="modal">
+  <div class="modal wide">
     <button class="close" onclick="closeModal('modal-add')">✕</button>
-    <h2 id="modal-title">New Application</h2>
+    <h2>Log Application from Job Report</h2>
+
+    <div id="add-file-row">
+      <select id="add-file-sel" onchange="loadAddFile()"><option value="">— loading… —</option></select>
+      <input id="add-search" type="text" placeholder="Filter jobs…" oninput="filterAddTable()">
+      <span id="add-job-count" style="color:var(--muted);font-size:0.8rem"></span>
+    </div>
+
+    <div id="add-table-wrap">
+      <table id="add-table">
+        <thead><tr>
+          <th style="width:36px">#</th>
+          <th style="width:56px">Score</th>
+          <th>Title</th>
+          <th>Company</th>
+          <th>Location</th>
+        </tr></thead>
+        <tbody id="add-tbody"></tbody>
+      </table>
+    </div>
+
+    <div id="add-preview">Click a row to select a job</div>
+
+    <div style="display:grid;grid-template-columns:160px 1fr;gap:0 16px">
+      <div class="form-row">
+        <label>Status</label>
+        <select id="f-add-status"></select>
+      </div>
+      <div class="form-row">
+        <label>Notes (optional)</label>
+        <input id="f-add-notes" placeholder="Cover letter sent · specific mode · etc." style="padding:8px 12px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;font-size:0.9rem;width:100%">
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveAdd()">Log Application</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Edit modal (manual fields) ─────────────────────────────────────── -->
+<div class="modal-bg" id="modal-edit">
+  <div class="modal">
+    <button class="close" onclick="closeModal('modal-edit')">✕</button>
+    <h2>Edit Application</h2>
     <input type="hidden" id="edit-id">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 16px">
       <div class="form-row" style="grid-column:1/-1">
@@ -208,12 +271,12 @@
       </div>
       <div class="form-row" style="grid-column:1/-1">
         <label>Notes</label>
-        <textarea id="f-notes" placeholder="Cover letter sent, specific mode · Interview details · etc."></textarea>
+        <textarea id="f-notes" placeholder="Cover letter sent · Interview details · etc."></textarea>
       </div>
     </div>
     <div class="form-actions">
-      <button class="btn btn-ghost" onclick="closeModal('modal-add')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveEntry()">Save</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEdit()">Save</button>
     </div>
   </div>
 </div>
@@ -278,12 +341,80 @@ async function init() {
 }
 
 function populateStatusSelects() {
-  ['f-status','u-status'].forEach(id => {
+  ['f-add-status','f-status','u-status'].forEach(id => {
     const sel = document.getElementById(id);
+    if (!sel) return;
     sel.innerHTML = STATUSES.map(s =>
       `<option value="${s.value}">${s.emoji} ${s.value}</option>`
     ).join('');
   });
+}
+
+// ── Job picker state ───────────────────────────────────────────────────────
+let ADD_JOBS = [];
+let selectedAddJob = null;
+
+async function initAddModal() {
+  const res   = await fetch('/api/job-files');
+  const files = await res.json();
+  const sel   = document.getElementById('add-file-sel');
+  if (!files.length) {
+    sel.innerHTML = '<option value="">— no jobs_*.csv found —</option>';
+    return;
+  }
+  sel.innerHTML = '<option value="">— select file —</option>' +
+    files.map(f => `<option value="${esc(f)}">${esc(f)}</option>`).join('');
+  sel.value = files[0];
+  await loadAddFile();
+}
+
+async function loadAddFile() {
+  const file = document.getElementById('add-file-sel').value;
+  if (!file) { ADD_JOBS = []; renderAddTable([]); return; }
+  const res = await fetch(`/api/jobs?file=${encodeURIComponent(file)}`);
+  ADD_JOBS = await res.json();
+  document.getElementById('add-job-count').textContent = `${ADD_JOBS.length} jobs`;
+  selectedAddJob = null;
+  document.getElementById('add-preview').innerHTML = 'Click a row to select a job';
+  renderAddTable(ADD_JOBS);
+}
+
+function filterAddTable() {
+  const q = document.getElementById('add-search').value.toLowerCase();
+  renderAddTable(ADD_JOBS.filter(j =>
+    `${j.title} ${j.company} ${j.location}`.toLowerCase().includes(q)
+  ));
+}
+
+function renderAddTable(jobs) {
+  const tbody = document.getElementById('add-tbody');
+  tbody.innerHTML = '';
+  jobs.forEach(j => {
+    const tr = document.createElement('tr');
+    tr.className = 'pick-row';
+    if (selectedAddJob && selectedAddJob.rank === j.rank) tr.classList.add('sel');
+    tr.innerHTML = `
+      <td>${j.rank}</td>
+      <td class="pick-score">${parseFloat(j.score).toFixed(1)}</td>
+      <td>${esc(j.title)}</td>
+      <td>${esc(j.company)}</td>
+      <td style="color:var(--muted);font-size:0.79rem">${esc(j.location || '—')}</td>`;
+    tr.onclick = () => selectAddJob(j);
+    tbody.appendChild(tr);
+  });
+}
+
+function selectAddJob(j) {
+  selectedAddJob = j;
+  document.querySelectorAll('#add-tbody .pick-row').forEach(r => r.classList.remove('sel'));
+  // Re-highlight by rank
+  document.querySelectorAll('#add-tbody .pick-row').forEach(r => {
+    if (r.children[0].textContent == j.rank) r.classList.add('sel');
+  });
+  const loc = j.location ? ` · ${j.location}` : '';
+  const src = j.source ? ` · ${j.source}` : '';
+  document.getElementById('add-preview').innerHTML =
+    `<span class="pv-title">#${j.rank} &nbsp; ${esc(j.title)}</span> &nbsp;@&nbsp; ${esc(j.company)}${esc(loc)}${esc(src)}`;
 }
 
 // ── Pipeline bar ───────────────────────────────────────────────────────────
@@ -361,34 +492,53 @@ function renderTable() {
   });
 }
 
-// ── Add / Edit ─────────────────────────────────────────────────────────────
-function openAdd() {
-  document.getElementById('modal-title').textContent = 'New Application';
-  document.getElementById('edit-id').value = '';
-  ['f-title','f-company','f-location','f-url','f-notes'].forEach(id =>
-    document.getElementById(id).value = '');
-  document.getElementById('f-status').value = 'applied';
-  document.getElementById('f-source').value = 'linkedin';
+// ── Add from job report ────────────────────────────────────────────────────
+async function openAdd() {
+  selectedAddJob = null;
+  document.getElementById('add-preview').innerHTML = 'Click a row to select a job';
+  document.getElementById('f-add-status').value = 'applied';
+  document.getElementById('f-add-notes').value  = '';
+  document.getElementById('add-search').value   = '';
   openModal('modal-add');
+  await initAddModal();
 }
 
+async function saveAdd() {
+  if (!selectedAddJob) { showToast('Select a job from the list first.', true); return; }
+  const body = {
+    title:    selectedAddJob.title,
+    company:  selectedAddJob.company,
+    location: selectedAddJob.location || '',
+    url:      selectedAddJob.url || '',
+    source:   selectedAddJob.source || '',
+    notes:    document.getElementById('f-add-notes').value.trim(),
+    status:   document.getElementById('f-add-status').value,
+  };
+  await fetch('/api/applications', {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+  });
+  showToast('Application logged!');
+  closeModal('modal-add');
+  await refresh();
+}
+
+// ── Edit (manual form) ────────────────────────────────────────────────────
 async function openEdit(id) {
   const e = ALL.find(x => x.id === id);
   if (!e) return;
-  document.getElementById('modal-title').textContent = 'Edit Application';
-  document.getElementById('edit-id').value   = id;
-  document.getElementById('f-title').value   = e.title;
-  document.getElementById('f-company').value = e.company;
-  document.getElementById('f-location').value= e.location || '';
-  document.getElementById('f-url').value     = e.url || '';
-  document.getElementById('f-notes').value   = e.notes || '';
-  document.getElementById('f-status').value  = e.status;
-  document.getElementById('f-source').value  = e.source || 'linkedin';
-  openModal('modal-add');
+  document.getElementById('edit-id').value    = id;
+  document.getElementById('f-title').value    = e.title;
+  document.getElementById('f-company').value  = e.company;
+  document.getElementById('f-location').value = e.location || '';
+  document.getElementById('f-url').value      = e.url || '';
+  document.getElementById('f-notes').value    = e.notes || '';
+  document.getElementById('f-status').value   = e.status;
+  document.getElementById('f-source').value   = e.source || 'linkedin';
+  openModal('modal-edit');
 }
 
-async function saveEntry() {
-  const id = document.getElementById('edit-id').value;
+async function saveEdit() {
+  const id   = document.getElementById('edit-id').value;
   const body = {
     title:    document.getElementById('f-title').value.trim(),
     company:  document.getElementById('f-company').value.trim(),
@@ -399,20 +549,11 @@ async function saveEntry() {
     source:   document.getElementById('f-source').value,
   };
   if (!body.title || !body.company) { showToast('Title and company are required.', true); return; }
-
-  if (id) {
-    // Edit existing — update status + notes
-    await fetch(`/api/applications/${id}`, {
-      method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
-    });
-    showToast('Updated.');
-  } else {
-    await fetch('/api/applications', {
-      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
-    });
-    showToast('Application logged!');
-  }
-  closeModal('modal-add');
+  await fetch(`/api/applications/${id}`, {
+    method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+  });
+  showToast('Saved.');
+  closeModal('modal-edit');
   await refresh();
 }
 
@@ -490,9 +631,6 @@ async function refresh() {
   renderTable();
 }
 
-function openModal(id)  { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-
 function esc(str) {
   return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
@@ -519,6 +657,9 @@ document.addEventListener('keydown', e => {
   }
   if (e.key === 'n' && !e.target.matches('input,textarea,select')) openAdd();
 });
+
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
 init();
 </script>

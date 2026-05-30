@@ -366,9 +366,7 @@ def generate(
     """
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    company_slug = _safe_filename(job.get("company", "company"))
-    title_slug   = _safe_filename(job.get("title", "role"))
-    base_name    = f"cover_letter_{company_slug}_{title_slug}"
+    base_name    = "cl_sahil"
 
     # Plain text
     txt_path = output_dir / f"{base_name}.txt"
