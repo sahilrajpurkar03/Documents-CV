@@ -8,7 +8,7 @@ text_specific → detailed (~3-4 sentences, includes metrics), suits a targeted 
 
 PERSONAL = {
     "name": "Sahil Sanjay Rajpurkar",
-    "address": "Dortmund, Germany",
+    "address": "In den Steiggärten 4, Mönsheim 71297, Germany",
     "phone": "+49 17671678983",
     "email": "sahilrajpurkar1998@gmail.com",
     "linkedin": "linkedin.com/in/sahilrajpurkar",

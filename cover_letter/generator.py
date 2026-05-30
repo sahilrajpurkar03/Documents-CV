@@ -102,8 +102,8 @@ def _opening(job_title: str, company: str, skill_phrase: str, mode: str) -> str:
     else:  # specific
         return (
             f"I am writing to apply for the {job_title} position at {company}. "
-            f"My hands-on experience in {skill_phrase} — built across industry "
-            f"internships and three years of research — directly addresses the "
+            f"My hands-on experience in {skill_phrase}, built across industry "
+            f"internships and three years of research, directly addresses the "
             f"core technical requirements outlined in your job posting."
         )
 
@@ -128,7 +128,7 @@ def _project_block(projects: List[dict], mode: str) -> str:
 
 def _closing(company: str, availability: str) -> str:
     return (
-        f"I am currently based in Dortmund, Germany, with no relocation required. "
+        f"I am based in Mönsheim, Germany (near Stuttgart), open to relocation across Germany. "
         f"I am available {availability} and would welcome the opportunity to discuss "
         f"my application in a personal interview. Thank you for your consideration."
     )
@@ -177,7 +177,7 @@ def render_text(
 
     if company:
         lines.append(company)
-    if location and location != "—":
+    if location and location not in ("—", "-", ""):
         lines.append(location)
     lines += ["", f"Subject: {subject}", "", "Dear Hiring Team,", ""]
 
@@ -250,9 +250,9 @@ def render_latex(
     closing   = _tex_escape(_closing(company, availability))
 
     recipient_lines = []
-    if company and company != "—":
+    if company and company not in ("—", "-", ""):
         recipient_lines.append(_tex_escape(company))
-    if location and location not in ("—", ""):
+    if location and location not in ("—", "-", ""):
         recipient_lines.append(_tex_escape(location))
     recipient_block = " \\\\\n".join(recipient_lines) if recipient_lines else ""
 
