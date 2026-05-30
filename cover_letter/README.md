@@ -7,7 +7,13 @@ Generates a tailored, ATS-friendly cover letter by matching your CV against a jo
 ## Quick Start
 
 ```powershell
-# From a job URL (paste from jobs_*.html)
+# Web UI — browse job report, pick a job, click Generate
+wsl bash cover_letter/run.sh web
+```
+Opens **http://localhost:5051** in your browser.
+
+```powershell
+# CLI — from a job URL
 wsl bash cover_letter/run.sh --url "https://www.linkedin.com/jobs/view/4419306282" --length specific
 
 # General (shorter) letter
@@ -22,6 +28,8 @@ wsl bash cover_letter/run.sh --url "https://..." --length specific --available "
 # Print letter to terminal as well
 wsl bash cover_letter/run.sh --url "https://..." --length specific --print
 ```
+
+All output is saved to `D:\Documents-CV\cl_sahil.txt / .tex / .pdf`.
 
 ---
 
@@ -79,22 +87,25 @@ Keywords are matched against tagged CV entries in `cv_data.py` to select the mos
 
 ## Output Files
 
-Both files are saved to `D:\Documents-CV` (or `--output-dir`):
+All files are saved directly to `D:\Documents-CV` (same folder as your CV):
 
 | File | Purpose |
 |------|---------|
-| `cover_letter_<company>_<title>.txt` | ATS-safe plain text — paste directly into application portals |
-| `cover_letter_<company>_<title>.tex` | LaTeX source — compile to PDF for email/upload submissions |
+| `cl_sahil.txt` | ATS-safe plain text — paste directly into application portals |
+| `cl_sahil.tex` | LaTeX source — compile to PDF for email/upload submissions |
+| `cl_sahil.pdf` | PDF (generated automatically if pdflatex is available) |
 
-**Compile to PDF** (MiKTeX is already installed):
+Each run overwrites the same three files, so your folder stays clean.
+
+**Compile to PDF manually** (MiKTeX is already installed):
 ```powershell
 # From D:\Documents-CV
-pdflatex cover_letter_<company>_<title>.tex
+pdflatex cl_sahil.tex
 ```
 
 Or via WSL texlive:
 ```bash
-pdflatex /mnt/d/Documents-CV/cover_letter_<company>_<title>.tex
+pdflatex /mnt/d/Documents-CV/cl_sahil.tex
 ```
 
 ---
@@ -103,12 +114,21 @@ pdflatex /mnt/d/Documents-CV/cover_letter_<company>_<title>.tex
 
 ```
 cover_letter/
+├── web.py            ← Flask web server (http://localhost:5051)
+├── index.html        ← Single-page UI — job picker + generate button
 ├── main.py           ← CLI entry point
 ├── cv_data.py        ← All CV content (experiences, projects, skill phrases) with tags
 ├── job_fetcher.py    ← Fetches job info from local HTML or web scraping
 ├── generator.py      ← Keyword matching, template filling, LaTeX renderer
 ├── requirements.txt  ← Python dependencies (auto-installed by run.sh)
-└── run.sh            ← Bash launcher
+└── run.sh            ← Bash launcher  (`web` subcommand starts the UI)
+```
+
+Output files in `D:\Documents-CV`:
+```
+cl_sahil.txt   ← plain text (always overwritten)
+cl_sahil.tex   ← LaTeX source
+cl_sahil.pdf   ← compiled PDF (if pdflatex available)
 ```
 
 ---

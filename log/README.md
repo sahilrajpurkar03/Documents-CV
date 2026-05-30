@@ -7,17 +7,20 @@ Track every application, update its status, and always know what is pending.
 ## Quick Start
 
 ```powershell
-# Interactive dashboard (active applications + pipeline overview)
+# Web UI — view pipeline, add from job report, update status in browser
+wsl bash log/run.sh web
+```
+Opens **http://localhost:5050** in your browser.
+
+```powershell
+# CLI — interactive dashboard
 wsl bash log/run.sh
-
-# Log a new application
-wsl bash log/run.sh add
-
-# Update status of application #1
-wsl bash log/run.sh update 1
 
 # List all active applications
 wsl bash log/run.sh list --active
+
+# Update status of application #1
+wsl bash log/run.sh update 1
 
 # Full detail + history for application #3
 wsl bash log/run.sh detail 3
@@ -87,9 +90,11 @@ This file is listed in `.gitignore` — your personal application data is **neve
 
 ```
 log/
+├── web.py            ← Flask web server (http://localhost:5050)
+├── index.html        ← Single-page UI — pipeline view, add from job report, edit, delete
 ├── main.py           ← CLI entry point
 ├── tracker.py        ← JSON store: add, update, query, delete
-├── run.sh            ← Bash launcher (auto-installs rich)
+├── run.sh            ← Bash launcher  (`web` subcommand starts the UI)
 └── README.md         ← This file
 ```
 
@@ -104,7 +109,8 @@ wsl bash job_search/run.sh --region Germany
 # 2. Generate a cover letter for it
 wsl bash cover_letter/run.sh --url "https://..." --length specific
 
-# 3. Log the application
+# 3. Log the application (web UI: click + Add Application, pick from table)
+#    or CLI:
 wsl bash log/run.sh add --title "Robotics Engineer" --company "KUKA" --url "https://..." --source linkedin --status applied
 
 # 4. After hearing back, update the status

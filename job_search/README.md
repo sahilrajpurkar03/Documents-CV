@@ -88,14 +88,21 @@ After each run, two files are saved next to `main.tex`:
 
 ```
 job_search/
-├── main.py           ← Entry point / CLI
-├── cv_parser.py      ← Parses main.tex, extracts skills & keywords
-├── searcher.py       ← Queries LinkedIn, Indeed, Glassdoor, Google Jobs
-├── scorer.py         ← Scores & ranks job listings against CV profile
-├── requirements.txt  ← Python dependencies
-├── run_job_search.sh ← Bash launcher (auto-installs deps)
-└── README.md         ← This file
+├── main.py              ← Entry point / CLI
+├── cv_parser.py         ← Parses main.tex, extracts skills & keywords
+├── searcher.py          ← Queries LinkedIn, Indeed, Glassdoor, Google Jobs
+├── scorer.py            ← Scores & ranks job listings against CV profile
+├── requirements.txt     ← Python dependencies
+├── run_job_search.sh    ← Bash launcher (auto-installs deps)
+└── README.md            ← This file
 ```
+
+Output files in `D:\Documents-CV`:
+```
+jobs_germany_YYYYMMDD_HHMM.csv    ← full ranked list (CSV)
+jobs_germany_YYYYMMDD_HHMM.html   ← styled dark-theme report (open in browser)
+```
+These files are loaded by the **cover letter** and **log** web UIs automatically.
 
 ---
 

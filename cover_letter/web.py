@@ -121,7 +121,7 @@ def generate_letter():
     if not job["title"] or not job["company"]:
         return jsonify({"error": "Could not determine job title or company. Provide them manually."}), 400
 
-    output_dir = _ROOT / "cover_letters"
+    output_dir = _ROOT
     result = generate(job, mode, availability, ref, output_dir)
 
     text = result["txt"].read_text(encoding="utf-8")

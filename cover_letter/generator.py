@@ -366,7 +366,7 @@ def generate(
     """
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    base_name    = "cl_sahil"
+    base_name = "cl_sahil"
 
     # Plain text
     txt_path = output_dir / f"{base_name}.txt"
