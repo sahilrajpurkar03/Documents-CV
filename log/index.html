@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Job Application Log</title>
+<style>
+  :root {
+    --bg:       #0f172a;
+    --surface:  #1e293b;
+    --border:   #334155;
+    --accent:   #38bdf8;
+    --text:     #e2e8f0;
+    --muted:    #94a3b8;
+    --green:    #22c55e;
+    --yellow:   #fbbf24;
+    --orange:   #f97316;
+    --red:      #ef4444;
+    --purple:   #a78bfa;
+    --cyan:     #38bdf8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* ── Header ── */
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 28px; display: flex; align-items: center; justify-content: space-between; }
+  header h1 { font-size: 1.2rem; color: var(--accent); }
+  header .subtitle { color: var(--muted); font-size: 0.82rem; margin-top: 2px; }
+
+  /* ── Pipeline summary bar ── */
+  #pipeline { display: flex; flex-wrap: wrap; gap: 10px; padding: 16px 28px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .pipe-chip { background: var(--bg); border: 1px solid var(--border); border-radius: 20px; padding: 4px 14px; font-size: 0.82rem; cursor: pointer; transition: border-color .15s; }
+  .pipe-chip:hover, .pipe-chip.active { border-color: var(--accent); color: var(--accent); }
+  .pipe-chip .count { font-weight: 700; margin-left: 4px; }
+
+  /* ── Toolbar ── */
+  #toolbar { display: flex; align-items: center; gap: 12px; padding: 14px 28px; flex-wrap: wrap; }
+  #search { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 7px 14px; border-radius: 6px; font-size: 0.9rem; width: 220px; }
+  #search:focus { outline: none; border-color: var(--accent); }
+  .btn { padding: 7px 18px; border-radius: 6px; font-size: 0.88rem; cursor: pointer; border: none; transition: opacity .15s; }
+  .btn:hover { opacity: 0.85; }
+  .btn-primary { background: var(--accent); color: #0f172a; font-weight: 600; }
+  .btn-ghost   { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+  .btn-danger  { background: var(--red); color: #fff; }
+  #filter-active { accent-color: var(--accent); cursor: pointer; }
+
+  /* ── Table ── */
+  #table-wrap { padding: 0 28px 28px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.87rem; margin-top: 14px; }
+  th { background: var(--surface); color: var(--accent); padding: 9px 12px; text-align: left; position: sticky; top: 0; white-space: nowrap; }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:hover td { background: rgba(56,189,248,.04); }
+  .col-id    { width: 46px; color: var(--muted); }
+  .col-title { min-width: 200px; font-weight: 500; }
+  .col-co    { min-width: 150px; }
+  .col-loc   { min-width: 120px; color: var(--muted); }
+  .col-src   { width: 90px; color: var(--muted); }
+  .col-date  { width: 100px; color: var(--muted); white-space: nowrap; }
+  .col-notes { min-width: 160px; color: var(--muted); font-size: 0.82rem; }
+  .col-acts  { width: 100px; white-space: nowrap; }
+  a.job-link { color: var(--accent); text-decoration: none; font-size: 0.8rem; }
+  a.job-link:hover { text-decoration: underline; }
+
+  /* ── Status badge ── */
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
+  .s-saved      { background:#1e293b; color:#94a3b8; border:1px solid #334155; }
+  .s-applied    { background:#0c3050; color:#38bdf8; }
+  .s-awaiting   { background:#3b2b00; color:#fbbf24; }
+  .s-interview  { background:#052e16; color:#22c55e; }
+  .s-assessment { background:#2d1e00; color:#fb923c; }
+  .s-offer      { background:#2e1065; color:#a78bfa; }
+  .s-rejected   { background:#2d0f0f; color:#f87171; }
+  .s-withdrawn  { background:#1e293b; color:#64748b; }
+
+  /* ── Row actions ── */
+  .act-btn { background: none; border: 1px solid var(--border); color: var(--text); border-radius: 4px; padding: 3px 8px; font-size: 0.75rem; cursor: pointer; margin-right: 4px; }
+  .act-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .act-del { border-color: transparent; color: var(--muted); }
+  .act-del:hover { border-color: var(--red); color: var(--red); }
+
+  /* ── Empty state ── */
+  #empty { text-align: center; padding: 60px 0; color: var(--muted); }
+  #empty .big { font-size: 2.5rem; }
+
+  /* ── Modal backdrop ── */
+  .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.65); z-index: 100; align-items: center; justify-content: center; }
+  .modal-bg.open { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 28px; width: 100%; max-width: 520px; position: relative; }
+  .modal h2 { color: var(--accent); font-size: 1.05rem; margin-bottom: 20px; }
+  .modal .close { position: absolute; top: 14px; right: 18px; background: none; border: none; color: var(--muted); font-size: 1.3rem; cursor: pointer; }
+  .modal .close:hover { color: var(--text); }
+
+  /* ── Form ── */
+  .form-row { margin-bottom: 14px; }
+  .form-row label { display: block; font-size: 0.82rem; color: var(--muted); margin-bottom: 5px; }
+  .form-row input, .form-row select, .form-row textarea {
+    width: 100%; background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); padding: 8px 12px; border-radius: 6px; font-size: 0.9rem; font-family: inherit;
+  }
+  .form-row input:focus, .form-row select:focus, .form-row textarea:focus { outline: none; border-color: var(--accent); }
+  .form-row textarea { resize: vertical; min-height: 72px; }
+  .form-row select option { background: var(--surface); }
+  .form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+  /* ── Detail panel ── */
+  #detail-panel { display: none; position: fixed; right: 0; top: 0; bottom: 0; width: 380px; background: var(--surface); border-left: 1px solid var(--border); padding: 24px; overflow-y: auto; z-index: 50; }
+  #detail-panel.open { display: block; }
+  #detail-panel h3 { color: var(--accent); font-size: 1rem; margin-bottom: 4px; }
+  #detail-panel .dp-co { color: var(--muted); font-size: 0.88rem; margin-bottom: 16px; }
+  .dp-row { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 8px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  .dp-row span:first-child { color: var(--muted); }
+  .history-item { font-size: 0.82rem; padding: 6px 0; border-bottom: 1px solid var(--border); }
+  .history-item .h-date { color: var(--muted); font-size: 0.76rem; }
+  #detail-panel .close-panel { position: absolute; top: 14px; right: 18px; background: none; border: none; color: var(--muted); font-size: 1.3rem; cursor: pointer; }
+  #detail-panel .section-title { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: .06em; margin: 18px 0 8px; }
+
+  /* ── Toast ── */
+  #toast { position: fixed; bottom: 24px; right: 24px; background: var(--green); color: #fff; padding: 10px 20px; border-radius: 6px; font-size: 0.88rem; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 200; }
+  #toast.show { opacity: 1; }
+  #toast.err { background: var(--red); }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div>
+    <h1>🗂 Job Application Log</h1>
+    <div class="subtitle">Sahil Sanjay Rajpurkar · Track · Update · Follow up</div>
+  </div>
+  <button class="btn btn-primary" onclick="openAdd()">+ Add Application</button>
+</header>
+
+<!-- Pipeline summary -->
+<div id="pipeline"></div>
+
+<!-- Toolbar -->
+<div id="toolbar">
+  <input id="search" type="text" placeholder="Search title or company…" oninput="renderTable()">
+  <label style="display:flex;align-items:center;gap:6px;font-size:0.88rem;color:var(--muted);cursor:pointer">
+    <input type="checkbox" id="filter-active" onchange="renderTable()"> Active only
+  </label>
+  <span id="count-label" style="color:var(--muted);font-size:0.82rem;margin-left:auto"></span>
+</div>
+
+<!-- Table -->
+<div id="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th class="col-id">#</th>
+        <th class="col-title">Title</th>
+        <th class="col-co">Company</th>
+        <th class="col-loc">Location</th>
+        <th>Status</th>
+        <th class="col-src">Source</th>
+        <th class="col-date">Applied</th>
+        <th class="col-notes">Notes</th>
+        <th class="col-acts">Actions</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <div id="empty" style="display:none">
+    <div class="big">📭</div>
+    <p style="margin-top:12px">No applications found.</p>
+    <button class="btn btn-primary" style="margin-top:16px" onclick="openAdd()">Log your first application</button>
+  </div>
+</div>
+
+<!-- ── Add / Edit Modal ────────────────────────────────────────────────── -->
+<div class="modal-bg" id="modal-add">
+  <div class="modal">
+    <button class="close" onclick="closeModal('modal-add')">✕</button>
+    <h2 id="modal-title">New Application</h2>
+    <input type="hidden" id="edit-id">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 16px">
+      <div class="form-row" style="grid-column:1/-1">
+        <label>Job Title *</label>
+        <input id="f-title" placeholder="e.g. Robotics Software Engineer">
+      </div>
+      <div class="form-row">
+        <label>Company *</label>
+        <input id="f-company" placeholder="e.g. KUKA AG">
+      </div>
+      <div class="form-row">
+        <label>Location</label>
+        <input id="f-location" placeholder="e.g. Munich, Germany">
+      </div>
+      <div class="form-row" style="grid-column:1/-1">
+        <label>Job URL</label>
+        <input id="f-url" type="url" placeholder="https://www.linkedin.com/jobs/view/…">
+      </div>
+      <div class="form-row">
+        <label>Source</label>
+        <select id="f-source">
+          <option value="linkedin">LinkedIn</option>
+          <option value="indeed">Indeed</option>
+          <option value="glassdoor">Glassdoor</option>
+          <option value="google">Google Jobs</option>
+          <option value="company">Company Site</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Status</label>
+        <select id="f-status"></select>
+      </div>
+      <div class="form-row" style="grid-column:1/-1">
+        <label>Notes</label>
+        <textarea id="f-notes" placeholder="Cover letter sent, specific mode · Interview details · etc."></textarea>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEntry()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Update Status Modal ─────────────────────────────────────────────── -->
+<div class="modal-bg" id="modal-update">
+  <div class="modal">
+    <button class="close" onclick="closeModal('modal-update')">✕</button>
+    <h2>Update Status</h2>
+    <input type="hidden" id="u-id">
+    <div class="form-row">
+      <label>Status</label>
+      <select id="u-status"></select>
+    </div>
+    <div class="form-row">
+      <label>Note (optional)</label>
+      <textarea id="u-notes" placeholder="Interview on 15 June, 14:00…" style="min-height:56px"></textarea>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-update')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveUpdate()">Update</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Detail Side Panel ───────────────────────────────────────────────── -->
+<div id="detail-panel">
+  <button class="close-panel" onclick="closeDetail()">✕</button>
+  <h3 id="dp-title"></h3>
+  <div class="dp-co" id="dp-co"></div>
+  <div id="dp-rows"></div>
+  <div class="section-title">History</div>
+  <div id="dp-history"></div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let ALL = [];
+let STATUSES = [];
+let activeFilter = null;
+
+const STATUS_CLASS = {
+  saved:'s-saved', applied:'s-applied', awaiting:'s-awaiting',
+  interview:'s-interview', assessment:'s-assessment', offer:'s-offer',
+  rejected:'s-rejected', withdrawn:'s-withdrawn'
+};
+const ACTIVE_SET = new Set(['saved','applied','awaiting','interview','assessment']);
+
+// ── Bootstrap ──────────────────────────────────────────────────────────────
+async function init() {
+  const [sRes, aRes] = await Promise.all([
+    fetch('/api/statuses'), fetch('/api/applications')
+  ]);
+  STATUSES = await sRes.json();
+  ALL      = await aRes.json();
+  populateStatusSelects();
+  renderPipeline();
+  renderTable();
+}
+
+function populateStatusSelects() {
+  ['f-status','u-status'].forEach(id => {
+    const sel = document.getElementById(id);
+    sel.innerHTML = STATUSES.map(s =>
+      `<option value="${s.value}">${s.emoji} ${s.value}</option>`
+    ).join('');
+  });
+}
+
+// ── Pipeline bar ───────────────────────────────────────────────────────────
+async function renderPipeline() {
+  const counts = await (await fetch('/api/summary')).json();
+  const bar = document.getElementById('pipeline');
+  bar.innerHTML = '';
+
+  // "All" chip
+  const allChip = document.createElement('div');
+  allChip.className = 'pipe-chip' + (activeFilter === null ? ' active' : '');
+  allChip.innerHTML = `All <span class="count">${ALL.length}</span>`;
+  allChip.onclick = () => { activeFilter = null; renderPipeline(); renderTable(); };
+  bar.appendChild(allChip);
+
+  STATUSES.forEach(s => {
+    const n = counts[s.value] || 0;
+    if (n === 0) return;
+    const chip = document.createElement('div');
+    chip.className = 'pipe-chip' + (activeFilter === s.value ? ' active' : '');
+    chip.innerHTML = `${s.emoji} ${s.value} <span class="count">${n}</span>`;
+    chip.onclick = () => { activeFilter = s.value; renderPipeline(); renderTable(); };
+    bar.appendChild(chip);
+  });
+}
+
+// ── Table ──────────────────────────────────────────────────────────────────
+function renderTable() {
+  const q       = document.getElementById('search').value.toLowerCase();
+  const onlyAct = document.getElementById('filter-active').checked;
+
+  let rows = ALL.filter(e => {
+    if (activeFilter && e.status !== activeFilter) return false;
+    if (onlyAct && !ACTIVE_SET.has(e.status)) return false;
+    if (q && !`${e.title} ${e.company}`.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  document.getElementById('count-label').textContent =
+    `${rows.length} application${rows.length !== 1 ? 's' : ''}`;
+
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+
+  if (rows.length === 0) {
+    document.getElementById('empty').style.display = 'block';
+    document.querySelector('table').style.display  = 'none';
+    return;
+  }
+  document.getElementById('empty').style.display = 'none';
+  document.querySelector('table').style.display  = 'table';
+
+  rows.forEach(e => {
+    const cls  = STATUS_CLASS[e.status] || '';
+    const link = e.url
+      ? `<br><a class="job-link" href="${e.url}" target="_blank">↗ Open posting</a>`
+      : '';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="col-id">${e.id}</td>
+      <td class="col-title">${esc(e.title)}${link}</td>
+      <td class="col-co">${esc(e.company)}</td>
+      <td class="col-loc">${esc(e.location || '—')}</td>
+      <td><span class="badge ${cls}">${esc(e.status)}</span></td>
+      <td class="col-src">${esc(e.source || '—')}</td>
+      <td class="col-date">${esc(e.date_applied || '—')}</td>
+      <td class="col-notes">${esc((e.notes || '').slice(0, 60))}${(e.notes||'').length>60?'…':''}</td>
+      <td class="col-acts">
+        <button class="act-btn" onclick="openUpdate(${e.id})">Status</button>
+        <button class="act-btn" onclick="openEdit(${e.id})">Edit</button>
+        <button class="act-btn" onclick="openDetail(${e.id})">▶</button>
+        <button class="act-btn act-del" onclick="deleteEntry(${e.id})" title="Delete">✕</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+// ── Add / Edit ─────────────────────────────────────────────────────────────
+function openAdd() {
+  document.getElementById('modal-title').textContent = 'New Application';
+  document.getElementById('edit-id').value = '';
+  ['f-title','f-company','f-location','f-url','f-notes'].forEach(id =>
+    document.getElementById(id).value = '');
+  document.getElementById('f-status').value = 'applied';
+  document.getElementById('f-source').value = 'linkedin';
+  openModal('modal-add');
+}
+
+async function openEdit(id) {
+  const e = ALL.find(x => x.id === id);
+  if (!e) return;
+  document.getElementById('modal-title').textContent = 'Edit Application';
+  document.getElementById('edit-id').value   = id;
+  document.getElementById('f-title').value   = e.title;
+  document.getElementById('f-company').value = e.company;
+  document.getElementById('f-location').value= e.location || '';
+  document.getElementById('f-url').value     = e.url || '';
+  document.getElementById('f-notes').value   = e.notes || '';
+  document.getElementById('f-status').value  = e.status;
+  document.getElementById('f-source').value  = e.source || 'linkedin';
+  openModal('modal-add');
+}
+
+async function saveEntry() {
+  const id = document.getElementById('edit-id').value;
+  const body = {
+    title:    document.getElementById('f-title').value.trim(),
+    company:  document.getElementById('f-company').value.trim(),
+    location: document.getElementById('f-location').value.trim(),
+    url:      document.getElementById('f-url').value.trim(),
+    notes:    document.getElementById('f-notes').value.trim(),
+    status:   document.getElementById('f-status').value,
+    source:   document.getElementById('f-source').value,
+  };
+  if (!body.title || !body.company) { showToast('Title and company are required.', true); return; }
+
+  if (id) {
+    // Edit existing — update status + notes
+    await fetch(`/api/applications/${id}`, {
+      method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    showToast('Updated.');
+  } else {
+    await fetch('/api/applications', {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    showToast('Application logged!');
+  }
+  closeModal('modal-add');
+  await refresh();
+}
+
+// ── Update status ──────────────────────────────────────────────────────────
+function openUpdate(id) {
+  const e = ALL.find(x => x.id === id);
+  if (!e) return;
+  document.getElementById('u-id').value     = id;
+  document.getElementById('u-status').value = e.status;
+  document.getElementById('u-notes').value  = '';
+  openModal('modal-update');
+}
+
+async function saveUpdate() {
+  const id     = document.getElementById('u-id').value;
+  const status = document.getElementById('u-status').value;
+  const notes  = document.getElementById('u-notes').value.trim();
+  await fetch(`/api/applications/${id}`, {
+    method: 'PATCH', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ status, notes })
+  });
+  closeModal('modal-update');
+  showToast('Status updated.');
+  await refresh();
+}
+
+// ── Delete ─────────────────────────────────────────────────────────────────
+async function deleteEntry(id) {
+  const e = ALL.find(x => x.id === id);
+  if (!confirm(`Delete "${e.title}" @ ${e.company}?`)) return;
+  await fetch(`/api/applications/${id}`, { method: 'DELETE' });
+  showToast('Deleted.');
+  await refresh();
+}
+
+// ── Detail panel ───────────────────────────────────────────────────────────
+async function openDetail(id) {
+  const e = await (await fetch(`/api/applications/${id}`)).json();
+  document.getElementById('dp-title').textContent = e.title;
+  document.getElementById('dp-co').textContent    = e.company + (e.location ? ` · ${e.location}` : '');
+
+  const cls = STATUS_CLASS[e.status] || '';
+  const rows = [
+    ['Status',       `<span class="badge ${cls}">${e.status}</span>`],
+    ['Applied',      e.date_applied || '—'],
+    ['Last updated', (e.last_updated || '—').slice(0,16)],
+    ['Source',       e.source || '—'],
+    ['URL',          e.url ? `<a class="job-link" href="${e.url}" target="_blank">↗ Open</a>` : '—'],
+    ['Notes',        esc(e.notes || '—')],
+  ];
+  document.getElementById('dp-rows').innerHTML =
+    rows.map(([k,v]) => `<div class="dp-row"><span>${k}</span><span>${v}</span></div>`).join('');
+
+  const hist = (e.history || []).slice().reverse();
+  document.getElementById('dp-history').innerHTML = hist.length
+    ? hist.map(h => `
+        <div class="history-item">
+          <span class="badge ${STATUS_CLASS[h.status]||''}">${h.status}</span>
+          ${h.note && h.note !== 'Added' ? `<span style="color:var(--text);margin-left:6px">${esc(h.note)}</span>` : ''}
+          <div class="h-date">${h.date}</div>
+        </div>`).join('')
+    : '<div style="color:var(--muted);font-size:0.82rem">(no history)</div>';
+
+  document.getElementById('detail-panel').classList.add('open');
+}
+
+function closeDetail() {
+  document.getElementById('detail-panel').classList.remove('open');
+}
+
+// ── Utilities ──────────────────────────────────────────────────────────────
+async function refresh() {
+  ALL = await (await fetch('/api/applications')).json();
+  renderPipeline();
+  renderTable();
+}
+
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function esc(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+let toastTimer;
+function showToast(msg, err=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (err ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = '', 2800);
+}
+
+// Close modals on backdrop click
+document.querySelectorAll('.modal-bg').forEach(bg =>
+  bg.addEventListener('click', e => { if (e.target === bg) bg.classList.remove('open'); })
+);
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-bg.open').forEach(m => m.classList.remove('open'));
+    closeDetail();
+  }
+  if (e.key === 'n' && !e.target.matches('input,textarea,select')) openAdd();
+});
+
+init();
+</script>
+</body>
+</html>
