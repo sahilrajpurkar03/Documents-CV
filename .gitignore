@@ -27,3 +27,10 @@ Thumbs.db
 .venv/
 venv/
 env/
+
+# Job application log (personal data — do not commit)
+log/applications.json
+
+#Final Files
+cv_sahil.pdf
+cl_sahil.pdf
