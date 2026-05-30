@@ -36,9 +36,17 @@ def _score(entry: dict, job_keywords: List[str]) -> float:
 
 
 def select_experiences(job_keywords: List[str], n: int = 2) -> List[dict]:
-    """Return top-n experiences sorted by match score."""
+    """
+    Return top-n experiences sorted by match score.
+    Porsche (id='porsche') is always included as it is the current role.
+    """
+    porsche = next((e for e in EXPERIENCES if e["id"] == "porsche"), None)
     scored = sorted(EXPERIENCES, key=lambda e: _score(e, job_keywords), reverse=True)
-    return scored[:n]
+    selected = scored[:n]
+    # Guarantee Porsche is present even in general (n=1) mode
+    if porsche and porsche not in selected:
+        selected[-1] = porsche
+    return selected
 
 
 def select_projects(job_keywords: List[str], n: int = 2) -> List[dict]:
@@ -129,7 +137,7 @@ def _project_block(projects: List[dict], mode: str) -> str:
 def _closing(company: str, availability: str) -> str:
     return (
         f"I am based in Mönsheim, Germany (near Stuttgart), open to relocation across Germany. "
-        f"I am available {availability} and would welcome the opportunity to discuss "
+        f"I am available from {availability} and would welcome the opportunity to discuss "
         f"my application in a personal interview. Thank you for your consideration."
     )
 

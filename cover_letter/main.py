@@ -87,8 +87,8 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     letter.add_argument("--available", "-a",
-                        default="upon agreement",
-                        help="Availability date (default: 'upon agreement')")
+                        default="1 October 2026",
+                        help="Availability date (default: '1 October 2026')")
     letter.add_argument("--ref", "-r", default="",
                         help="Job reference number (optional, appears in subject line)")
 
