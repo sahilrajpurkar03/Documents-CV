@@ -102,6 +102,27 @@ def api_summary():
     return jsonify(pending_count())
 
 
+# ── Fetch job info from a URL (for manual Add) ────────────────────────────
+
+@app.route("/api/fetch-job")
+def api_fetch_job():
+    url = request.args.get("url", "").strip()
+    if not url:
+        return jsonify({"error": "URL required"}), 400
+    # Reuse job_fetcher from cover_letter/
+    cl_dir = str(_ROOT / "cover_letter")
+    if cl_dir not in sys.path:
+        sys.path.insert(0, cl_dir)
+    try:
+        from job_fetcher import fetch_job
+        result = fetch_job(url, _ROOT)
+        if result:
+            return jsonify(result)
+        return jsonify({"error": "Could not fetch job info from that URL. Fill manually."}), 404
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
 # ── Job CSV helpers (for "Add from report" modal) ─────────────────────────
 
 @app.route("/api/job-files")
