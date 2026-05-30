@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cover Letter Generator</title>
+<style>
+  :root {
+    --bg:      #0f172a;
+    --surface: #1e293b;
+    --border:  #334155;
+    --accent:  #38bdf8;
+    --text:    #e2e8f0;
+    --muted:   #94a3b8;
+    --green:   #22c55e;
+    --yellow:  #fbbf24;
+    --red:     #ef4444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* ── Header ── */
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 28px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  header h1 { font-size: 1.2rem; color: var(--accent); }
+  header .subtitle { color: var(--muted); font-size: 0.82rem; margin-top: 2px; }
+
+  /* ── Main layout: left panel + result panel ── */
+  .main-wrap { display: flex; flex: 1; overflow: hidden; }
+
+  /* ── Left: file + table ── */
+  #left { display: flex; flex-direction: column; flex: 1; min-width: 0; overflow: hidden; }
+
+  /* ── File bar ── */
+  #file-bar { padding: 14px 24px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 14px; flex-wrap: wrap; flex-shrink: 0; }
+  #file-bar label { color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
+  #file-select { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 7px 12px; border-radius: 6px; font-size: 0.88rem; min-width: 280px; cursor: pointer; }
+  #file-select:focus { outline: none; border-color: var(--accent); }
+  #job-count { color: var(--muted); font-size: 0.82rem; }
+  #search-jobs { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 7px 12px; border-radius: 6px; font-size: 0.88rem; width: 200px; margin-left: auto; }
+  #search-jobs:focus { outline: none; border-color: var(--accent); }
+
+  /* ── Job table ── */
+  #table-wrap { flex: 1; overflow: auto; padding: 0 24px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.84rem; margin-top: 12px; }
+  th { background: var(--surface); color: var(--accent); padding: 8px 10px; text-align: left; position: sticky; top: 0; white-space: nowrap; }
+  td { padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr.job-row { cursor: pointer; }
+  tr.job-row:hover td { background: rgba(56,189,248,.05); }
+  tr.job-row.selected td { background: rgba(56,189,248,.12); }
+  tr.job-row.selected td:first-child { border-left: 3px solid var(--accent); }
+  .col-rank  { width: 36px; text-align: center; color: var(--muted); }
+  .col-score { width: 66px; text-align: center; }
+  .col-title { min-width: 200px; font-weight: 500; }
+  .col-co    { min-width: 140px; }
+  .col-loc   { min-width: 130px; color: var(--muted); font-size: 0.8rem; }
+  .col-kw    { min-width: 200px; }
+  .col-link  { width: 60px; text-align: center; }
+  .score-bar { display: inline-block; height: 6px; border-radius: 3px; background: var(--accent); margin-left: 6px; vertical-align: middle; opacity: .7; }
+  a.job-link { color: var(--accent); text-decoration: none; font-size: 0.8rem; }
+  a.job-link:hover { text-decoration: underline; }
+  .kw-chip { display: inline-block; background: rgba(56,189,248,.1); color: var(--accent); border-radius: 10px; padding: 1px 7px; font-size: 0.73rem; margin: 1px; }
+
+  .quality-Good      { color: #22c55e; }
+  .quality-Excellent { color: #a78bfa; font-weight: 600; }
+  .quality-Fair      { color: #fbbf24; }
+  .quality-Poor      { color: #f87171; }
+
+  /* ── Bottom: options + generate ── */
+  #options-bar { background: var(--surface); border-top: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; flex-shrink: 0; }
+  .opt-group { display: flex; flex-direction: column; gap: 5px; }
+  .opt-group label { color: var(--muted); font-size: 0.78rem; }
+  .opt-group input, .opt-group select { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 7px 12px; border-radius: 6px; font-size: 0.88rem; }
+  .opt-group input:focus, .opt-group select:focus { outline: none; border-color: var(--accent); }
+  #url-manual { width: 280px; }
+  #opt-avail  { width: 180px; }
+  #opt-ref    { width: 140px; }
+  .btn { padding: 8px 20px; border-radius: 6px; font-size: 0.9rem; cursor: pointer; border: none; transition: opacity .15s; }
+  .btn:hover { opacity: 0.85; }
+  .btn-primary { background: var(--accent); color: #0f172a; font-weight: 700; align-self: flex-end; }
+  .btn-ghost   { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+  .selected-indicator { font-size: 0.82rem; color: var(--muted); align-self: center; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .selected-indicator .sel-title { color: var(--text); font-weight: 500; }
+
+  /* ── Right: result panel ── */
+  #result-panel { width: 500px; min-width: 400px; background: var(--surface); border-left: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+  #result-panel.hidden { display: none; }
+  #result-header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  #result-header h2 { font-size: 0.95rem; color: var(--accent); }
+  #result-meta { color: var(--muted); font-size: 0.78rem; margin-top: 3px; }
+  #result-actions { display: flex; gap: 8px; }
+  #result-body { flex: 1; overflow: auto; padding: 18px 20px; }
+  #letter-text { white-space: pre-wrap; font-family: 'Segoe UI', sans-serif; font-size: 0.87rem; line-height: 1.65; color: var(--text); background: none; border: none; width: 100%; resize: none; min-height: 100%; }
+  #letter-text:focus { outline: none; }
+  .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Empty / loading states ── */
+  #loading-row td { text-align: center; padding: 40px; color: var(--muted); }
+  #no-file-msg { text-align: center; padding: 60px 24px; color: var(--muted); font-size: 0.9rem; }
+
+  /* ── Toast ── */
+  #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--green); color: #fff; padding: 10px 24px; border-radius: 6px; font-size: 0.88rem; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 200; white-space: nowrap; }
+  #toast.show { opacity: 1; }
+  #toast.err  { background: var(--red); }
+
+  /* ── Responsive ── */
+  @media (max-width: 900px) {
+    #result-panel { width: 100%; min-width: unset; border-left: none; border-top: 1px solid var(--border); }
+    .main-wrap { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div>
+    <h1>✉ Cover Letter Generator</h1>
+    <div class="subtitle">Pick a job from your report, choose options, click Generate</div>
+  </div>
+</header>
+
+<div class="main-wrap">
+
+  <!-- LEFT: file selector + table + options -->
+  <div id="left">
+
+    <!-- File selector bar -->
+    <div id="file-bar">
+      <label>Job report:</label>
+      <select id="file-select" onchange="loadFile()">
+        <option value="">— loading files… —</option>
+      </select>
+      <span id="job-count"></span>
+      <input id="search-jobs" type="text" placeholder="Filter jobs…" oninput="filterTable()">
+    </div>
+
+    <!-- Table -->
+    <div id="table-wrap">
+      <div id="no-file-msg">Select a job report file above to load jobs.</div>
+      <table id="jobs-table" style="display:none">
+        <thead>
+          <tr>
+            <th class="col-rank">#</th>
+            <th class="col-score">Score</th>
+            <th class="col-title">Title</th>
+            <th class="col-co">Company</th>
+            <th class="col-loc">Location</th>
+            <th class="col-kw">Matched Keywords</th>
+            <th class="col-link">Link</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- Options + generate bar -->
+    <div id="options-bar">
+      <div class="opt-group">
+        <label>Or paste job URL directly</label>
+        <input id="url-manual" type="url" placeholder="https://www.linkedin.com/jobs/view/…">
+      </div>
+      <div class="opt-group">
+        <label>Length</label>
+        <select id="opt-mode">
+          <option value="specific">Specific (~380 words)</option>
+          <option value="general">General (~250 words)</option>
+        </select>
+      </div>
+      <div class="opt-group">
+        <label>Available from</label>
+        <input id="opt-avail" type="text" value="upon agreement">
+      </div>
+      <div class="opt-group">
+        <label>Job ref # (optional)</label>
+        <input id="opt-ref" type="text" placeholder="REF-2026-042">
+      </div>
+      <div class="selected-indicator" id="sel-indicator">No job selected</div>
+      <button class="btn btn-primary" id="gen-btn" onclick="generate()">
+        Generate ↗
+      </button>
+    </div>
+
+  </div><!-- /left -->
+
+  <!-- RIGHT: result panel -->
+  <div id="result-panel" class="hidden">
+    <div id="result-header">
+      <div>
+        <h2>Generated Cover Letter</h2>
+        <div id="result-meta"></div>
+      </div>
+      <div id="result-actions">
+        <button class="btn btn-ghost" onclick="copyLetter()" id="copy-btn">Copy</button>
+        <button class="btn btn-ghost" onclick="closeResult()">✕</button>
+      </div>
+    </div>
+    <div id="result-body">
+      <textarea id="letter-text" spellcheck="false"></textarea>
+    </div>
+  </div>
+
+</div><!-- /main-wrap -->
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let ALL_JOBS   = [];
+let selectedJob = null;
+
+// ── Init ───────────────────────────────────────────────────────────────────
+async function init() {
+  const res   = await fetch('/api/job-files');
+  const files = await res.json();
+  const sel   = document.getElementById('file-select');
+  if (!files.length) {
+    sel.innerHTML = '<option value="">— no jobs_*.csv files found —</option>';
+    return;
+  }
+  sel.innerHTML = '<option value="">— select a file —</option>' +
+    files.map(f => `<option value="${esc(f)}">${esc(f)}</option>`).join('');
+  // Auto-select newest
+  sel.value = files[0];
+  loadFile();
+}
+
+// ── Load file ──────────────────────────────────────────────────────────────
+async function loadFile() {
+  const file = document.getElementById('file-select').value;
+  if (!file) {
+    document.getElementById('no-file-msg').style.display = 'block';
+    document.getElementById('jobs-table').style.display = 'none';
+    ALL_JOBS = [];
+    return;
+  }
+  document.getElementById('no-file-msg').innerHTML =
+    '<span class="spinner"></span> Loading…';
+  document.getElementById('no-file-msg').style.display = 'block';
+  document.getElementById('jobs-table').style.display  = 'none';
+
+  const res = await fetch(`/api/jobs?file=${encodeURIComponent(file)}`);
+  ALL_JOBS  = await res.json();
+
+  document.getElementById('no-file-msg').style.display = 'none';
+  document.getElementById('jobs-table').style.display  = 'table';
+  document.getElementById('job-count').textContent     = `${ALL_JOBS.length} jobs`;
+  selectedJob = null;
+  updateIndicator();
+  renderTable(ALL_JOBS);
+}
+
+// ── Filter ─────────────────────────────────────────────────────────────────
+function filterTable() {
+  const q = document.getElementById('search-jobs').value.toLowerCase();
+  const filtered = ALL_JOBS.filter(j =>
+    `${j.title} ${j.company} ${j.location} ${j.matched_keywords}`.toLowerCase().includes(q)
+  );
+  renderTable(filtered);
+}
+
+// ── Render table ───────────────────────────────────────────────────────────
+function renderTable(jobs) {
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+
+  jobs.forEach(j => {
+    const score = parseFloat(j.score) || 0;
+    const barW  = Math.min(Math.round(score), 100);
+    const qCls  = 'quality-' + (j.match_quality || 'Fair');
+
+    const chips = (j.matched_keywords || '').split(',').filter(Boolean)
+      .map(k => `<span class="kw-chip">${esc(k.trim())}</span>`).join('');
+
+    const link = j.url
+      ? `<a class="job-link" href="${esc(j.url)}" target="_blank" onclick="event.stopPropagation()">↗</a>`
+      : '';
+
+    const tr = document.createElement('tr');
+    tr.className = 'job-row';
+    tr.dataset.rank = j.rank;
+    tr.innerHTML = `
+      <td class="col-rank">${j.rank}</td>
+      <td class="col-score">
+        <span class="${qCls}">${score.toFixed(1)}</span>
+        <span class="score-bar" style="width:${barW * 0.4}px"></span>
+      </td>
+      <td class="col-title">${esc(j.title)}</td>
+      <td class="col-co">${esc(j.company)}</td>
+      <td class="col-loc">${esc(j.location || '—')}</td>
+      <td class="col-kw">${chips}</td>
+      <td class="col-link">${link}</td>`;
+
+    tr.addEventListener('click', () => selectJob(j, tr));
+    tbody.appendChild(tr);
+  });
+}
+
+// ── Select a job ───────────────────────────────────────────────────────────
+function selectJob(job, tr) {
+  // Deselect all
+  document.querySelectorAll('.job-row.selected').forEach(r => r.classList.remove('selected'));
+  tr.classList.add('selected');
+  selectedJob = job;
+  // Pre-fill URL field if empty
+  if (job.url && !document.getElementById('url-manual').value) {
+    document.getElementById('url-manual').value = job.url;
+  } else if (job.url) {
+    document.getElementById('url-manual').value = job.url;
+  }
+  updateIndicator();
+}
+
+function updateIndicator() {
+  const el = document.getElementById('sel-indicator');
+  if (!selectedJob) {
+    el.innerHTML = 'No job selected';
+  } else {
+    el.innerHTML = `<span class="sel-title">${esc(selectedJob.title)}</span><br>${esc(selectedJob.company)}`;
+  }
+}
+
+// ── Generate ───────────────────────────────────────────────────────────────
+async function generate() {
+  const url    = document.getElementById('url-manual').value.trim();
+  const mode   = document.getElementById('opt-mode').value;
+  const avail  = document.getElementById('opt-avail').value.trim() || '1 October 2026';
+  const ref    = document.getElementById('opt-ref').value.trim();
+
+  // Build payload from selected job OR manual URL
+  let payload = { mode, availability: avail, ref };
+
+  if (selectedJob) {
+    payload.url              = selectedJob.url || url;
+    payload.title            = selectedJob.title;
+    payload.company          = selectedJob.company;
+    payload.location         = selectedJob.location;
+    payload.matched_keywords = selectedJob.matched_keywords;
+  } else if (url) {
+    payload.url = url;
+  } else {
+    showToast('Select a job from the table or paste a URL.', true);
+    return;
+  }
+
+  // Show result panel + spinner
+  const panel   = document.getElementById('result-panel');
+  const letterEl = document.getElementById('letter-text');
+  panel.classList.remove('hidden');
+  letterEl.value = '';
+  document.getElementById('result-meta').textContent = '';
+  document.getElementById('gen-btn').disabled  = true;
+  document.getElementById('gen-btn').textContent = '⏳ Generating…';
+
+  try {
+    const res  = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      showToast(data.error || 'Generation failed.', true);
+      document.getElementById('gen-btn').disabled  = false;
+      document.getElementById('gen-btn').textContent = 'Generate ↗';
+      return;
+    }
+
+    letterEl.value = data.text;
+    letterEl.style.height = 'auto';   // auto-size textarea height
+    letterEl.style.height = letterEl.scrollHeight + 'px';
+
+    let meta = `${mode} mode`;
+    if (data.saved_txt) meta += ' · saved as .txt / .tex';
+    if (data.saved_pdf) meta += ' / .pdf';
+    document.getElementById('result-meta').textContent = meta;
+
+    showToast('Cover letter generated!');
+  } catch (err) {
+    showToast('Network error: ' + err.message, true);
+  }
+
+  document.getElementById('gen-btn').disabled  = false;
+  document.getElementById('gen-btn').textContent = 'Generate ↗';
+}
+
+// ── Copy ───────────────────────────────────────────────────────────────────
+function copyLetter() {
+  const text = document.getElementById('letter-text').value;
+  navigator.clipboard.writeText(text).then(() => showToast('Copied to clipboard!'));
+}
+
+function closeResult() {
+  document.getElementById('result-panel').classList.add('hidden');
+}
+
+// ── Utilities ──────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+let toastTimer;
+function showToast(msg, err=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className   = 'show' + (err ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = '', 3000);
+}
+
+// Keyboard: Enter on generate button
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.ctrlKey) generate();
+});
+
+init();
+</script>
+</body>
+</html>
