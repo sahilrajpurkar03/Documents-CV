@@ -47,7 +47,10 @@
   /* ── Table ── */
   #table-wrap { padding: 0 28px 28px; overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; font-size: 0.87rem; margin-top: 14px; }
-  th { background: var(--surface); color: var(--accent); padding: 9px 12px; text-align: left; position: sticky; top: 0; white-space: nowrap; }
+  th { background: var(--surface); color: var(--accent); padding: 9px 12px; text-align: left; position: sticky; top: 0; white-space: nowrap; cursor: pointer; user-select: none; }
+  th:hover { color: #7dd3fc; }
+  th.sorted { color: #fff; }
+  th .sort-arrow { font-size: 0.7rem; margin-left: 4px; opacity: 0.6; }
   td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
   tr:hover td { background: rgba(56,189,248,.04); }
   .col-id    { width: 46px; color: var(--muted); }
@@ -155,7 +158,7 @@
 <header>
   <div>
     <h1>🗂 Job Application Log</h1>
-    <div class="subtitle">Sahil Sanjay Rajpurkar · Track · Update · Follow up</div>
+    <div class="subtitle" id="header-subtitle">Job Application Tracker · Track · Update · Follow up</div>
   </div>
   <button class="btn btn-primary" onclick="openAdd()">+ Add Application</button>
 </header>
@@ -178,12 +181,12 @@
     <thead>
       <tr>
         <th class="col-id">#</th>
-        <th class="col-title">Title</th>
-        <th class="col-co">Company</th>
+        <th class="col-title" onclick="toggleSort('title')">Title <span class="sort-arrow" id="arr-title"></span></th>
+        <th class="col-co" onclick="toggleSort('company')">Company <span class="sort-arrow" id="arr-company"></span></th>
         <th class="col-loc">Location</th>
-        <th>Status</th>
+        <th onclick="toggleSort('status')">Status <span class="sort-arrow" id="arr-status"></span></th>
         <th class="col-src">Source</th>
-        <th class="col-date">Applied</th>
+        <th class="col-date" onclick="toggleSort('date_applied')">Applied <span class="sort-arrow" id="arr-date_applied"></span></th>
         <th class="col-notes">Notes</th>
         <th class="col-acts">Actions</th>
       </tr>
@@ -348,6 +351,13 @@
 let ALL = [];
 let STATUSES = [];
 let activeFilter = null;
+let sortCol = 'status';   // default: status-priority sort
+let sortDir = 1;          // 1 = asc (lower priority # = top), -1 = desc
+
+const STATUS_PRIORITY = {
+  offer: 0, interview: 1, assessment: 2, awaiting: 3,
+  applied: 4, saved: 5, withdrawn: 6, rejected: 7
+};
 
 const STATUS_CLASS = {
   saved:'s-saved', applied:'s-applied', awaiting:'s-awaiting',
@@ -358,11 +368,16 @@ const ACTIVE_SET = new Set(['saved','applied','awaiting','interview','assessment
 
 // ── Bootstrap ──────────────────────────────────────────────────────────────
 async function init() {
-  const [sRes, aRes] = await Promise.all([
-    fetch('/api/statuses'), fetch('/api/applications')
+  const [sRes, aRes, cfgRes] = await Promise.all([
+    fetch('/api/statuses'), fetch('/api/applications'), fetch('/api/config')
   ]);
   STATUSES = await sRes.json();
   ALL      = await aRes.json();
+  const cfg = await cfgRes.json();
+  if (cfg.name) {
+    document.getElementById('header-subtitle').textContent =
+      `${cfg.name} · Track · Update · Follow up`;
+  }
   populateStatusSelects();
   renderPipeline();
   renderTable();
@@ -479,6 +494,37 @@ function renderTable() {
     if (onlyAct && !ACTIVE_SET.has(e.status)) return false;
     if (q && !`${e.title} ${e.company}`.toLowerCase().includes(q)) return false;
     return true;
+  });
+
+  // Sort
+  rows.sort((a, b) => {
+    if (sortCol === 'status') {
+      const pa = STATUS_PRIORITY[a.status] ?? 8;
+      const pb = STATUS_PRIORITY[b.status] ?? 8;
+      if (pa !== pb) return sortDir * (pa - pb);
+      // Tiebreak: most recently updated first
+      return (b.last_updated || b.date_applied || '').localeCompare(a.last_updated || a.date_applied || '');
+    }
+    if (sortCol === 'date_applied') {
+      return sortDir * (b.date_applied || '').localeCompare(a.date_applied || '');
+    }
+    const va = String(a[sortCol] || '').toLowerCase();
+    const vb = String(b[sortCol] || '').toLowerCase();
+    return sortDir * va.localeCompare(vb);
+  });
+
+  // Update sort arrow indicators
+  ['title','company','status','date_applied'].forEach(col => {
+    const el = document.getElementById(`arr-${col}`);
+    const th = el && el.closest('th');
+    if (!el) return;
+    if (col === sortCol) {
+      el.textContent = sortDir === 1 ? '▲' : '▼';
+      if (th) th.classList.add('sorted');
+    } else {
+      el.textContent = '⇅';
+      if (th) th.classList.remove('sorted');
+    }
   });
 
   document.getElementById('count-label').textContent =
@@ -714,6 +760,17 @@ async function openDetail(id) {
 
 function closeDetail() {
   document.getElementById('detail-panel').classList.remove('open');
+}
+
+// ── Sort toggle ───────────────────────────────────────────────────────────
+function toggleSort(col) {
+  if (sortCol === col) {
+    sortDir = -sortDir;  // flip direction
+  } else {
+    sortCol = col;
+    sortDir = (col === 'date_applied') ? -1 : 1;  // dates: newest first by default
+  }
+  renderTable();
 }
 
 // ── Utilities ──────────────────────────────────────────────────────────────

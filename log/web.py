@@ -102,6 +102,23 @@ def api_summary():
     return jsonify(pending_count())
 
 
+# ── Config (name from CV, for generic UI) ─────────────────────────────────
+
+@app.route("/api/config")
+def api_config():
+    name = ""
+    try:
+        parser_dir = str(_ROOT / "job_search")
+        if parser_dir not in sys.path:
+            sys.path.insert(0, parser_dir)
+        from cv_parser import parse_cv
+        profile = parse_cv(_ROOT / "main.tex")
+        name = profile.name or ""
+    except Exception:
+        pass
+    return jsonify({"name": name})
+
+
 # ── Fetch job info from a URL (for manual Add) ────────────────────────────
 
 @app.route("/api/fetch-job")

@@ -366,7 +366,8 @@ def generate(
     """
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    base_name = "cl_sahil"
+    first_name = PERSONAL.get("name", "user").lower().split()[0]
+    base_name  = f"cl_{first_name}"
 
     # Plain text
     txt_path = output_dir / f"{base_name}.txt"

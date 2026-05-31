@@ -1,36 +1,51 @@
-# LaTeX build artifacts
-main.aux
-main.fdb_latexmk
-main.fls
-main.log
-main.out
-main.fls
+# ── LaTeX build artifacts ──────────────────────────────────────────────────
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.out
 *.synctex.gz
 
-# Job search output files (timestamped reports)
+# ── Cover letter output (generated per-user) ──────────────────────────────
+cl_*.tex
+cl_*.txt
+cl_*.pdf
+
+# ── CV output PDF ─────────────────────────────────────────────────────────
+cv_*.pdf
+main.pdf
+main.txt
+
+# ── Personal photo (add your own photo.png) ───────────────────────────────
+photo.png
+
+# ── Job search output (timestamped reports) ───────────────────────────────
 jobs_*.csv
 jobs_*.html
 
-# Python cache
+# ── Application log (personal data — never commit) ────────────────────────
+log/applications.json
+
+# ── Personal cover letter data (copy from cv_data.example.py and edit) ────
+cover_letter/cv_data.py
+
+# ── Python cache ──────────────────────────────────────────────────────────
 __pycache__/
 *.pyc
 *.pyo
 .pytest_cache/
 
-# Temp / editor files
+# ── Python virtual environments ───────────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ── Temp / editor files ───────────────────────────────────────────────────
 *.swp
 *.swo
 .DS_Store
 Thumbs.db
 
-# Python virtual envs
-.venv/
-venv/
-env/
-
-# Job application log (personal data — do not commit)
-log/applications.json
-
-#Final Files
-cv_sahil.pdf
-cl_sahil.pdf
+# ── Machine-specific git helper scripts (WSL/NTFS workaround) ────────────
+_fix_git.sh
+_gitcmd.sh
