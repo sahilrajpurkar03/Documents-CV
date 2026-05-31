@@ -48,7 +48,7 @@ except ImportError:
     sys.exit(1)
 
 from cv_parser import parse_cv, CVProfile
-from searcher import REGIONS, DEFAULT_SEARCH_TERMS, search_jobs, search_company, JobListing
+from searcher import REGIONS, DEFAULT_SEARCH_TERMS, search_jobs, search_company, JobListing, build_search_terms_from_cv
 from scorer import rank_listings, score_label, score_color
 
 console = Console()
@@ -205,14 +205,15 @@ def export_csv(listings: List[JobListing], region_name: str, output_dir: Path):
     if not listings:
         return None
 
-    fieldnames = ["score", "match_quality", "title", "company", "location",
-                  "source", "date_posted", "salary", "matched_keywords", "url"]
+    fieldnames = ["score", "match_quality", "rank", "title", "company", "location",
+                  "source", "job_type", "date_posted", "salary", "matched_keywords", "url"]
     with open(fname, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
-        for job in listings:
+        for i, job in enumerate(listings, 1):
             row = job.to_dict()
             row["match_quality"] = score_label(job.score)
+            row["rank"] = i
             writer.writerow({k: row.get(k, "") for k in fieldnames})
     return fname
 
@@ -329,8 +330,8 @@ def run(
         expand=False,
     ))
 
-    # ── Derive search terms from CV keywords + defaults ────────────────
-    search_terms = DEFAULT_SEARCH_TERMS  # already tailored for this profile
+    # ── Derive search terms dynamically from CV keywords + defaults ───
+    search_terms = build_search_terms_from_cv(cv)
 
     output_dir = Path(cv_path).parent
     all_exported = []

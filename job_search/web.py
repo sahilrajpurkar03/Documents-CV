@@ -32,7 +32,7 @@ try:
 except ImportError:
     print("[ERROR] Flask not installed. Run: pip install flask"); sys.exit(1)
 
-from searcher import REGIONS, DEFAULT_SEARCH_TERMS, search_jobs, search_company
+from searcher import REGIONS, search_jobs, search_company, build_search_terms_from_cv
 from scorer   import rank_listings, score_label
 from cv_parser import parse_cv
 
@@ -75,13 +75,14 @@ def api_jobs():
     with open(path, encoding="utf-8", newline="") as f:
         for i, row in enumerate(csv.DictReader(f), 1):
             jobs.append({
-                "rank":             i,
+                "rank":             row.get("rank", i),
                 "score":            row.get("score", ""),
                 "match_quality":    row.get("match_quality", ""),
                 "title":            row.get("title", ""),
                 "company":          row.get("company", ""),
                 "location":         row.get("location", ""),
                 "source":           row.get("source", ""),
+                "job_type":         row.get("job_type", ""),
                 "date_posted":      row.get("date_posted", ""),
                 "salary":           row.get("salary", ""),
                 "matched_keywords": row.get("matched_keywords", ""),
@@ -114,9 +115,10 @@ def api_search():
 
         yield from send("status", {"text": f"Searching {region} across {', '.join(sites)}..."})
 
+        search_terms = build_search_terms_from_cv(cv)
         listings = []
         errors   = []
-        for term in DEFAULT_SEARCH_TERMS:
+        for term in search_terms:
             yield from send("progress", {"text": f'Searching: "{term}"'})
             try:
                 batch = search_jobs(
@@ -141,13 +143,14 @@ def api_search():
         csv_file = _ROOT / f"jobs_{slug}_{ts}.csv"
         with open(csv_file, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=[
-                "score","match_quality","title","company","location",
-                "source","date_posted","salary","matched_keywords","url",
+                "rank","score","match_quality","title","company","location",
+                "source","job_type","date_posted","salary","matched_keywords","url",
             ])
             writer.writeheader()
-            for j in ranked:
+            for i, j in enumerate(ranked, 1):
                 row = j.to_dict()
                 row["match_quality"] = score_label(j.score)
+                row["rank"] = i
                 writer.writerow(row)
 
         jobs_out = []
@@ -157,8 +160,9 @@ def api_search():
                 "match_quality": score_label(j.score),
                 "title": j.title, "company": j.company,
                 "location": j.location, "source": j.source,
-                "date_posted": j.date_posted, "salary": j.salary,
-                "matched_keywords": ", ".join(j.matched_keywords[:8]),
+                "job_type": j.job_type, "date_posted": j.date_posted,
+                "salary": j.salary,
+                "matched_keywords": ", ".join(j.matched_keywords[:10]),
                 "url": j.url,
             })
         yield from send("done", {"jobs": jobs_out, "csv_file": csv_file.name,
@@ -193,19 +197,19 @@ def api_search_company():
         except Exception as e:
             yield from send("error", {"text": str(e)}); return
 
-        yield from send("status", {"text": f"Searching all roles at {company_name}..."})
+        yield from send("status", {"text": f"Searching all roles at {company_name} (3 variants)..."})
         try:
             listings = search_company(
                 company_name=company_name,
                 region_name=region,
                 results=top_n,
                 sites=sites,
-                verbose=False,
+                verbose=True,
             )
         except Exception as e:
             yield from send("error", {"text": str(e)}); return
 
-        yield from send("status", {"text": f"Scoring {len(listings)} listings..."})
+        yield from send("progress", {"text": f"Found {len(listings)} listings — scoring..."})
         ranked = rank_listings(listings, cv, top_n=top_n)
 
         # Save CSV
@@ -215,13 +219,14 @@ def api_search_company():
         csv_file = _ROOT / f"jobs_{slug}_{ts}.csv"
         with open(csv_file, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=[
-                "score","match_quality","title","company","location",
-                "source","date_posted","salary","matched_keywords","url",
+                "rank","score","match_quality","title","company","location",
+                "source","job_type","date_posted","salary","matched_keywords","url",
             ])
             writer.writeheader()
-            for j in ranked:
+            for i, j in enumerate(ranked, 1):
                 row = j.to_dict()
                 row["match_quality"] = score_label(j.score)
+                row["rank"] = i
                 writer.writerow(row)
 
         jobs_out = []
@@ -231,8 +236,9 @@ def api_search_company():
                 "match_quality": score_label(j.score),
                 "title": j.title, "company": j.company,
                 "location": j.location, "source": j.source,
-                "date_posted": j.date_posted, "salary": j.salary,
-                "matched_keywords": ", ".join(j.matched_keywords[:8]),
+                "job_type": j.job_type, "date_posted": j.date_posted,
+                "salary": j.salary,
+                "matched_keywords": ", ".join(j.matched_keywords[:10]),
                 "url": j.url,
             })
         yield from send("done", {"jobs": jobs_out, "csv_file": csv_file.name,

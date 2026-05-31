@@ -67,13 +67,24 @@
   .col-rank  { width: 36px; text-align: center; color: var(--muted); }
   .col-score { width: 70px; text-align: center; }
   .col-title { min-width: 200px; font-weight: 500; }
-  .col-co    { min-width: 140px; }
-  .col-loc   { min-width: 130px; color: var(--muted); font-size: 0.8rem; }
-  .col-kw    { min-width: 200px; }
-  .col-date  { width: 96px; color: var(--muted); }
-  .col-link  { width: 52px; text-align: center; }
+  .col-co    { min-width: 130px; }
+  .col-loc   { min-width: 110px; color: var(--muted); font-size: 0.8rem; }
+  .col-type  { width: 80px; font-size: 0.78rem; color: var(--muted); }
+  .col-src   { width: 80px; }
+  .col-sal   { min-width: 110px; font-size: 0.8rem; color: var(--green); }
+  .col-kw    { min-width: 180px; }
+  .col-date  { width: 90px; color: var(--muted); }
+  .col-link  { width: 68px; text-align: center; }
   a.job-link { color: var(--accent); text-decoration: none; font-size: 0.8rem; }
   a.job-link:hover { text-decoration: underline; }
+  .apply-btn { display: inline-block; background: var(--accent); color: #0f172a; border-radius: 4px; padding: 3px 10px; font-size: 0.76rem; font-weight: 700; text-decoration: none; white-space: nowrap; }
+  .apply-btn:hover { opacity: 0.85; }
+  .src-badge { display: inline-block; border-radius: 4px; padding: 1px 7px; font-size: 0.72rem; font-weight: 600; }
+  .src-linkedin  { background: rgba(10,102,194,.18); color: #60a5fa; }
+  .src-indeed    { background: rgba(34,197,94,.12);  color: #86efac; }
+  .src-glassdoor { background: rgba(251,191,36,.12); color: #fbbf24; }
+  .src-google    { background: rgba(167,139,250,.12);color: #a78bfa; }
+  .src-other     { background: rgba(148,163,184,.1); color: var(--muted); }
   .kw-chip { display: inline-block; background: rgba(56,189,248,.1); color: var(--accent); border-radius: 10px; padding: 1px 7px; font-size: 0.72rem; margin: 1px; }
   .score-bar { display: inline-block; height: 5px; border-radius: 3px; background: var(--accent); margin-left: 5px; vertical-align: middle; opacity: .65; }
 
@@ -166,9 +177,12 @@
         <th class="col-title" onclick="sortResults('r','title')">Title ↕</th>
         <th class="col-co" onclick="sortResults('r','company')">Company ↕</th>
         <th class="col-loc">Location</th>
+        <th class="col-src">Source</th>
+        <th class="col-type">Type</th>
+        <th class="col-sal">Salary</th>
         <th class="col-kw">Matched Keywords</th>
         <th class="col-date" onclick="sortResults('r','date_posted')">Posted ↕</th>
-        <th class="col-link">Link</th>
+        <th class="col-link">Apply</th>
       </tr></thead>
       <tbody id="r-tbody"></tbody>
     </table>
@@ -213,9 +227,12 @@
         <th class="col-title" onclick="sortResults('c','title')">Title ↕</th>
         <th class="col-co">Company</th>
         <th class="col-loc">Location</th>
+        <th class="col-src">Source</th>
+        <th class="col-type">Type</th>
+        <th class="col-sal">Salary</th>
         <th class="col-kw">Matched Keywords</th>
         <th class="col-date" onclick="sortResults('c','date_posted')">Posted ↕</th>
-        <th class="col-link">Link</th>
+        <th class="col-link">Apply</th>
       </tr></thead>
       <tbody id="c-tbody"></tbody>
     </table>
@@ -241,9 +258,12 @@
         <th class="col-title" onclick="sortResults('b','title')">Title ↕</th>
         <th class="col-co" onclick="sortResults('b','company')">Company ↕</th>
         <th class="col-loc">Location</th>
+        <th class="col-src">Source</th>
+        <th class="col-type">Type</th>
+        <th class="col-sal">Salary</th>
         <th class="col-kw">Matched Keywords</th>
         <th class="col-date" onclick="sortResults('b','date_posted')">Posted ↕</th>
-        <th class="col-link">Link</th>
+        <th class="col-link">Apply</th>
       </tr></thead>
       <tbody id="b-tbody"></tbody>
     </table>
@@ -487,8 +507,12 @@ function renderTable(pfx, jobs) {
     const qCls   = Q_CLASS[j.match_quality] || 'q-Fair';
     const chips  = (j.matched_keywords || '').split(',').filter(Boolean)
       .map(k => `<span class="kw-chip">${esc(k.trim())}</span>`).join('');
-    const link   = j.url
-      ? `<a class="job-link" href="${esc(j.url)}" target="_blank">↗</a>` : '';
+    const srcKey = (j.source || '').toLowerCase().split(' ')[0];
+    const srcBadge = `<span class="src-badge src-${srcKey}">${esc(j.source || '—')}</span>`;
+    const typeStr  = (j.job_type || '').replace(/_/g,' ') || '—';
+    const salStr   = j.salary || '—';
+    const applyBtn = j.url
+      ? `<a class="apply-btn" href="${esc(j.url)}" target="_blank">Apply ↗</a>` : '—';
     const bar    = `<span class="score-bar" style="width:${Math.min(score,100)*0.36}px"></span>`;
     const tr     = document.createElement('tr');
     tr.innerHTML = `
@@ -497,9 +521,12 @@ function renderTable(pfx, jobs) {
       <td class="col-title">${esc(j.title)}</td>
       <td class="col-co">${esc(j.company || '—')}</td>
       <td class="col-loc">${esc(j.location || '—')}</td>
+      <td class="col-src">${srcBadge}</td>
+      <td class="col-type">${esc(typeStr)}</td>
+      <td class="col-sal">${esc(salStr)}</td>
       <td class="col-kw">${chips}</td>
       <td class="col-date">${esc((j.date_posted||'').slice(0,10)||'—')}</td>
-      <td class="col-link">${link}</td>`;
+      <td class="col-link">${applyBtn}</td>`;
     tbody.appendChild(tr);
   });
 }
@@ -508,7 +535,7 @@ function applyFilter(pfx, jobs) {
   const filterEl = document.getElementById(pfx === 'b' ? 'b-filter' : `${pfx}-filter`);
   const q = filterEl ? filterEl.value.toLowerCase() : '';
   let rows = q
-    ? jobs.filter(j => `${j.title} ${j.company} ${j.location} ${j.matched_keywords}`.toLowerCase().includes(q))
+    ? jobs.filter(j => `${j.title} ${j.company} ${j.location} ${j.matched_keywords} ${j.salary} ${j.job_type}`.toLowerCase().includes(q))
     : jobs;
   const s = SORTED[pfx];
   rows = [...rows].sort((a, b) => {

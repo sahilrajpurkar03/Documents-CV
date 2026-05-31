@@ -5,6 +5,7 @@ Uses the `python-jobspy` library as the unified scraper backend.
 
 from __future__ import annotations
 
+import re
 import time
 import random
 from dataclasses import dataclass, field
@@ -91,7 +92,31 @@ DEFAULT_SEARCH_TERMS = [
     "Automation Engineer",
     "Humanoid Robotics Engineer",
     "Sensor Fusion Engineer",
+    "Imitation Learning Engineer",
+    "AI Robotics Engineer",
+    "SLAM Engineer",
+    "Robot Learning",
+    "Legged Robotics Engineer",
 ]
+
+
+def build_search_terms_from_cv(profile) -> List[str]:
+    """
+    Build a dynamic search term list from the parsed CV profile.
+    Merges DEFAULT_SEARCH_TERMS with role keywords from the profile.
+    """
+    terms = list(DEFAULT_SEARCH_TERMS)
+    for role in getattr(profile, 'roles', []):
+        if role not in terms:
+            terms.append(role)
+    # Deduplicate preserving order
+    seen: set = set()
+    unique = []
+    for t in terms:
+        if t.lower() not in seen:
+            seen.add(t.lower())
+            unique.append(t)
+    return unique
 
 
 @dataclass
@@ -115,9 +140,10 @@ class JobListing:
             "company": self.company,
             "location": self.location,
             "source": self.source,
-            "date_posted": self.date_posted,
+            "job_type": self.job_type,
             "salary": self.salary,
-            "matched_keywords": ", ".join(self.matched_keywords[:8]),
+            "date_posted": self.date_posted,
+            "matched_keywords": ", ".join(self.matched_keywords[:10]),
             "url": self.url,
         }
 
@@ -214,7 +240,28 @@ def search_jobs(
 
     if verbose:
         print(f"\n  Found {len(all_listings)} unique listings.")
-    return all_listings
+    return deduplicate_by_title(all_listings)
+
+
+def deduplicate_by_title(listings: List[JobListing]) -> List[JobListing]:
+    """
+    Remove near-duplicate listings with the same (company, normalised title).
+    Keeps the entry with the longer description (more data = better scoring).
+    """
+    seen: dict = {}   # key → index in result list
+    result: List[JobListing] = []
+    for listing in listings:
+        norm = re.sub(r"\(m/f/d\)|\(f/m/d\)|\(all genders\)", "", listing.title, flags=re.IGNORECASE)
+        norm = re.sub(r"\s+", " ", norm).strip().lower()
+        key = (listing.company.lower().strip(), norm)
+        if key in seen:
+            idx = seen[key]
+            if len(listing.description) > len(result[idx].description):
+                result[idx] = listing
+        else:
+            seen[key] = len(result)
+            result.append(listing)
+    return result
 
 
 def search_company(
@@ -246,16 +293,24 @@ def search_company(
     all_listings: List[JobListing] = []
     seen_urls: set = set()
 
-    # Search using company name as the search term — jobspy supports this well on LinkedIn
-    for term in [company_name, f"{company_name} jobs", f"site:{company_name.lower().replace(' ', '')}.com"]:
+    # Try multiple search variants to maximise coverage
+    search_variants = [
+        company_name,
+        f"{company_name} engineer",
+        f"{company_name} robotics",
+    ]
+
+    for term in search_variants:
+        if verbose:
+            print(f"  Trying: \"{term}\" ...", flush=True)
         try:
             df = scrape_jobs(
                 site_name=sites,
-                search_term=company_name,
+                search_term=term,
                 location=region["cities"][0],
                 results_wanted=results,
+                hours_old=60 * 24 * 90,  # 90-day window — wider for company search
                 country_indeed=region["country_indeed"],
-                linkedin_company_ids=None,
                 linkedin_fetch_description=True,
                 verbose=0,
             )
@@ -264,24 +319,25 @@ def search_company(
                     if listing.url and listing.url not in seen_urls:
                         seen_urls.add(listing.url)
                         all_listings.append(listing)
-            break  # jobspy found results, no need to try other terms
         except Exception as exc:
             if verbose:
                 print(f"    [warn] {exc}")
-            continue
 
         time.sleep(random.uniform(1.5, 3.0))
 
-    # Filter to only rows where company roughly matches (case-insensitive)
+    # Filter to only rows where company name roughly matches
     name_lower = company_name.lower()
     filtered = [
         j for j in all_listings
         if name_lower in (j.company or "").lower()
         or (j.company or "").lower() in name_lower
     ]
-    # Fallback: return all if filter removes everything (some sites vary company name)
+    # Fallback: if filter is too aggressive, return all
     if not filtered:
         filtered = all_listings
+
+    # Remove near-duplicate titles from the same company
+    filtered = deduplicate_by_title(filtered)
 
     if verbose:
         print(f"  Found {len(filtered)} listings for {company_name}.")
