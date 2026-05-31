@@ -94,7 +94,20 @@
   .q-Fair      { color: #fbbf24; }
   .q-Low       { color: #f87171; }
 
-  /* ── Empty ── */
+  /* ── Score breakdown tooltip ── */
+  .score-cell { position: relative; cursor: help; }
+  .breakdown-tip {
+    display: none; position: absolute; left: 50%; transform: translateX(-50%);
+    top: calc(100% + 6px); z-index: 100;
+    background: #0f172a; border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 14px; min-width: 200px;
+    font-size: 0.78rem; white-space: nowrap; box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  }
+  .score-cell:hover .breakdown-tip { display: block; }
+  .bd-row { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 3px; }
+  .bd-label { color: var(--muted); }
+  .bd-val   { color: var(--text); font-weight: 600; }
+  .bd-bar   { height: 3px; border-radius: 2px; background: var(--accent); margin-top: 1px; opacity: .5; }
   .empty-msg { text-align: center; padding: 60px 24px; color: var(--muted); font-size: 0.9rem; }
   .spinner { display: inline-block; width: 20px; height: 20px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -362,9 +375,12 @@ function handleRegionEvent(obj) {
     DATA.r = obj.jobs || [];
     renderTable('r', DATA.r);
     document.getElementById('r-saved').textContent = obj.csv_file ? `Saved: ${obj.csv_file}` : '';
+    const stats = obj.relevant != null
+      ? `✓ Done — ${obj.total} scraped → ${obj.unique} unique → ${obj.relevant} relevant → ${DATA.r.length} ranked`
+      : `✓ Done — ${DATA.r.length} ranked jobs`;
     const d = document.createElement('div');
     d.className = 'prog-line done';
-    d.textContent = `✓ Done — ${DATA.r.length} ranked jobs`;
+    d.textContent = stats;
     prog.appendChild(d);
     finishRegionSearch();
     showToast(`Found ${DATA.r.length} jobs!`);
@@ -514,10 +530,31 @@ function renderTable(pfx, jobs) {
     const applyBtn = j.url
       ? `<a class="apply-btn" href="${esc(j.url)}" target="_blank">Apply ↗</a>` : '—';
     const bar    = `<span class="score-bar" style="width:${Math.min(score,100)*0.36}px"></span>`;
-    const tr     = document.createElement('tr');
+
+    // Score breakdown tooltip
+    let tipHtml = '';
+    const bd = j.score_breakdown || {};
+    if (Object.keys(bd).length) {
+      const rows = [
+        ['Keywords',    bd.keywords,    40],
+        ['Title',       bd.title,       25],
+        ['Seniority',   bd.seniority,   15],
+        ['Recency',     bd.recency,     10],
+        ['Description', bd.description, 10],
+        ['Location',    bd.location,     5],
+        ['Job type',    bd.job_type,     5],
+      ];
+      tipHtml = '<div class="breakdown-tip">' +
+        rows.map(([label, val, max]) =>
+          `<div class="bd-row"><span class="bd-label">${label}</span><span class="bd-val">${(val||0).toFixed(1)}/${max}</span></div>` +
+          `<div class="bd-bar" style="width:${Math.min((val||0)/max,1)*100}%"></div>`
+        ).join('') + '</div>';
+    }
+
+    const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="col-rank">${j.rank}</td>
-      <td class="col-score"><span class="${qCls}">${score.toFixed(1)}</span>${bar}</td>
+      <td class="col-score score-cell"><span class="${qCls}">${score.toFixed(1)}</span>${bar}${tipHtml}</td>
       <td class="col-title">${esc(j.title)}</td>
       <td class="col-co">${esc(j.company || '—')}</td>
       <td class="col-loc">${esc(j.location || '—')}</td>

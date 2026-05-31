@@ -32,8 +32,8 @@ try:
 except ImportError:
     print("[ERROR] Flask not installed. Run: pip install flask"); sys.exit(1)
 
-from searcher import REGIONS, search_jobs, search_company, build_search_terms_from_cv
-from scorer   import rank_listings, score_label
+from searcher import REGIONS, search_jobs, search_company, build_search_terms_from_cv, deduplicate_by_title
+from scorer   import rank_listings, score_label, is_relevant
 from cv_parser import parse_cv
 
 app = Flask(__name__)
@@ -116,24 +116,61 @@ def api_search():
         yield from send("status", {"text": f"Searching {region} across {', '.join(sites)}..."})
 
         search_terms = build_search_terms_from_cv(cv)
-        listings = []
-        errors   = []
-        for term in search_terms:
-            yield from send("progress", {"text": f'Searching: "{term}"'})
-            try:
-                batch = search_jobs(
-                    region_name=region,
-                    search_terms=[term],
-                    results_per_term=per_term,
-                    sites=sites,
-                    hours_old=hours_old,
-                    verbose=False,
-                )
-                listings.extend(batch)
-            except Exception as e:
-                errors.append(str(e))
+        progress_log = []
 
-        yield from send("status", {"text": f"Scoring {len(listings)} listings..."})
+        def on_prog(term: str):
+            progress_log.append(term)
+
+        yield from send("status", {"text": f"Launching {len(search_terms)} parallel searches (max 4 threads)..."})
+
+        # Run all terms in parallel — dedup happens after all complete
+        from concurrent.futures import ThreadPoolExecutor, as_completed as _as_completed
+        listings_raw: List = []
+        seen_urls: set = set()
+        errors: List[str] = []
+
+        try:
+            from searcher import _scrape_one_term
+            region_cfg = REGIONS[region]
+            def _run(term):
+                return _scrape_one_term(
+                    term=term,
+                    sites=sites,
+                    location_str=region_cfg["cities"][0],
+                    results_per_term=per_term,
+                    hours_old=hours_old,
+                    country_indeed=region_cfg["country_indeed"],
+                    verbose=False,
+                    region_flag=region_cfg["flag"],
+                )
+            with ThreadPoolExecutor(max_workers=4) as ex:
+                futs = {ex.submit(_run, t): t for t in search_terms}
+                done = 0
+                for fut in _as_completed(futs):
+                    term = futs[fut]
+                    done += 1
+                    try:
+                        batch = fut.result()
+                        new = 0
+                        for listing in batch:
+                            if listing.url and listing.url not in seen_urls:
+                                seen_urls.add(listing.url)
+                                listings_raw.append(listing)
+                                new += 1
+                            elif not listing.url:
+                                listings_raw.append(listing)
+                                new += 1
+                        yield from send("progress", {"text": f'[{done}/{len(search_terms)}] "{term}" → {new} new jobs'})
+                    except Exception as e:
+                        errors.append(str(e))
+                        yield from send("progress", {"text": f'[{done}/{len(search_terms)}] "{term}" → error'})
+        except Exception as e:
+            yield from send("error", {"text": str(e)}); return
+
+        # Cross-search deduplication
+        listings = deduplicate_by_title(listings_raw)
+        relevant = [j for j in listings if is_relevant(j)]
+        yield from send("status", {"text": f"Scoring {len(relevant)}/{len(listings)} relevant listings..."})
         ranked = rank_listings(listings, cv, top_n=top_n)
 
         # Save CSV
@@ -164,9 +201,13 @@ def api_search():
                 "salary": j.salary,
                 "matched_keywords": ", ".join(j.matched_keywords[:10]),
                 "url": j.url,
+                "score_breakdown": getattr(j, "_score_breakdown", {}),
             })
-        yield from send("done", {"jobs": jobs_out, "csv_file": csv_file.name,
-                                  "total": len(listings), "errors": errors})
+        yield from send("done", {
+            "jobs": jobs_out, "csv_file": csv_file.name,
+            "total": len(listings_raw), "unique": len(listings),
+            "relevant": len(relevant), "errors": errors,
+        })
 
     return Response(stream_with_context(generate()),
                     mimetype="text/event-stream",
@@ -240,6 +281,7 @@ def api_search_company():
                 "salary": j.salary,
                 "matched_keywords": ", ".join(j.matched_keywords[:10]),
                 "url": j.url,
+                "score_breakdown": getattr(j, "_score_breakdown", {}),
             })
         yield from send("done", {"jobs": jobs_out, "csv_file": csv_file.name,
                                   "total": len(listings)})

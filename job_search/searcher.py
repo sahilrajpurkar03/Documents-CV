@@ -8,8 +8,9 @@ from __future__ import annotations
 import re
 import time
 import random
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Callable
 import pandas as pd
 
 # ---------------------------------------------------------------------------
@@ -179,6 +180,48 @@ def _df_to_listings(df: pd.DataFrame) -> List[JobListing]:
     return listings
 
 
+def _scrape_one_term(
+    term: str,
+    sites: List[str],
+    location_str: str,
+    results_per_term: int,
+    hours_old: int,
+    country_indeed: str,
+    verbose: bool,
+    region_flag: str,
+    on_progress: Optional[Callable[[str], None]] = None,
+) -> List[JobListing]:
+    """Scrape a single search term. Designed for use in ThreadPoolExecutor."""
+    try:
+        from jobspy import scrape_jobs
+    except ImportError:
+        return []
+
+    if on_progress:
+        on_progress(term)
+
+    # Stagger threads slightly to avoid simultaneous connection bursts
+    time.sleep(random.uniform(0.2, 1.2))
+
+    try:
+        df = scrape_jobs(
+            site_name=sites,
+            search_term=term,
+            location=location_str,
+            results_wanted=results_per_term,
+            hours_old=hours_old,
+            country_indeed=country_indeed,
+            linkedin_fetch_description=True,
+            verbose=0,
+        )
+        if df is not None and len(df) > 0:
+            return _df_to_listings(df)
+    except Exception as exc:
+        if verbose:
+            print(f"    [warn] {term}: {exc}")
+    return []
+
+
 def search_jobs(
     region_name: str,
     search_terms: List[str],
@@ -186,57 +229,55 @@ def search_jobs(
     sites: Optional[List[str]] = None,
     hours_old: int = 72 * 7,  # 3 weeks
     verbose: bool = True,
+    on_progress: Optional[Callable[[str], None]] = None,
+    max_workers: int = 4,
 ) -> List[JobListing]:
     """
     Run job searches across LinkedIn, Indeed, and Glassdoor for the given
-    region and search terms.  Returns a flat list of deduplicated JobListings.
+    region and search terms.  Uses parallel threads for speed.
+    Returns a flat list of deduplicated JobListings.
     """
     try:
-        from jobspy import scrape_jobs
+        from jobspy import scrape_jobs  # noqa — just check it's installed
     except ImportError:
-        raise ImportError(
-            "python-jobspy not installed. Run:  pip install python-jobspy"
-        )
+        raise ImportError("python-jobspy not installed. Run: pip install python-jobspy")
 
     if region_name not in REGIONS:
-        raise ValueError(f"Unknown region '{region_name}'. "
-                         f"Choose from: {list(REGIONS)}")
+        raise ValueError(f"Unknown region '{region_name}'. Choose from: {list(REGIONS)}")
 
     region = REGIONS[region_name]
     if sites is None:
         sites = ["linkedin", "indeed", "glassdoor", "google"]
 
-    location_str = region["cities"][0]  # primary location (country name)
+    location_str = region["cities"][0]
 
     all_listings: List[JobListing] = []
     seen_urls: set = set()
+    lock_seen: set = seen_urls  # reference, used below
 
-    for term in search_terms:
-        if verbose:
-            print(f"  Searching [{region['flag']} {region_name}]: \"{term}\" ...", flush=True)
+    def _collect(term: str) -> List[JobListing]:
+        return _scrape_one_term(
+            term=term,
+            sites=sites,
+            location_str=location_str,
+            results_per_term=results_per_term,
+            hours_old=hours_old,
+            country_indeed=region["country_indeed"],
+            verbose=verbose,
+            region_flag=region["flag"],
+            on_progress=on_progress,
+        )
 
-        try:
-            df = scrape_jobs(
-                site_name=sites,
-                search_term=term,
-                location=location_str,
-                results_wanted=results_per_term,
-                hours_old=hours_old,
-                country_indeed=region["country_indeed"],
-                linkedin_fetch_description=True,
-                verbose=0,
-            )
-            if df is not None and len(df) > 0:
-                for listing in _df_to_listings(df):
-                    if listing.url and listing.url not in seen_urls:
-                        seen_urls.add(listing.url)
-                        all_listings.append(listing)
-        except Exception as exc:
-            if verbose:
-                print(f"    [warn] {term}: {exc}")
-
-        # Polite delay between searches to avoid rate limiting
-        time.sleep(random.uniform(2.0, 4.0))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(_collect, term): term for term in search_terms}
+        for future in as_completed(futures):
+            batch = future.result()
+            for listing in batch:
+                if listing.url and listing.url not in lock_seen:
+                    lock_seen.add(listing.url)
+                    all_listings.append(listing)
+                elif not listing.url:
+                    all_listings.append(listing)
 
     if verbose:
         print(f"\n  Found {len(all_listings)} unique listings.")
@@ -270,6 +311,7 @@ def search_company(
     results: int = 50,
     sites: Optional[List[str]] = None,
     verbose: bool = True,
+    on_progress: Optional[Callable[[str], None]] = None,
 ) -> List[JobListing]:
     """
     Search all open roles at a specific company, ranked by CV fit score.
@@ -303,6 +345,8 @@ def search_company(
     for term in search_variants:
         if verbose:
             print(f"  Trying: \"{term}\" ...", flush=True)
+        if on_progress:
+            on_progress(f"Trying: \"{term}\"")
         try:
             df = scrape_jobs(
                 site_name=sites,

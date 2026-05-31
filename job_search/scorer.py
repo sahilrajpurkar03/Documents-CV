@@ -21,6 +21,11 @@ from cv_parser import CVProfile
 from searcher import JobListing
 
 
+# Add score_breakdown field dynamically (avoids dataclass change)
+def _get_breakdown(listing: JobListing) -> dict:
+    return getattr(listing, "_score_breakdown", {})
+
+
 # ---------------------------------------------------------------------------
 # Title-level role keywords (high-weight matches)
 # ---------------------------------------------------------------------------
@@ -98,6 +103,54 @@ PREFERRED_LOCATIONS = [
     "hamburg", "dortmund", "frankfurt", "cologne", "köln", "hannover",
     "remote", "hybrid",
 ]
+
+# ---------------------------------------------------------------------------
+# Negative filters — jobs that clearly don't match this profile
+# ---------------------------------------------------------------------------
+NEGATIVE_TITLE_BLACKLIST = [
+    # Business / non-tech
+    "sales", "account manager", "business development", "marketing",
+    "product manager", "project manager", "scrum master", "hr ", "recruiter",
+    "talent", "finance", "legal", "lawyer", "consultant", "strategy",
+    "operations manager", "office", "customer success", "customer support",
+    "technical support", "it support", "helpdesk",
+    # Unrelated engineering
+    "civil engineer", "structural engineer", "mechanical design",
+    "electrical engineer", "hvac", "plumbing", "construction",
+    "quality assurance analyst",  # non-engineering QA
+    "sap", "erp", "oracle",
+    # Completely unrelated
+    "nurse", "doctor", "teacher", "chef", "driver", "logistics coordinator",
+    "warehouse", "security guard", "cleaner",
+]
+
+# Minimum tech relevance — at least ONE of these must appear in title or first 200 chars of description
+TECH_RELEVANCE_TERMS = [
+    "robot", "ros", "autonom", "embed", "python", "c++", "machine learning",
+    "ai", "deep learning", "vision", "lidar", "sensor", "slam", "engineer",
+    "developer", "software", "firmware", "hardware", "simulation", "ml",
+    "perception", "navigation", "manipulat", "mechatron", "automation",
+    "control", "motion", "trajectory", "reinforcement", "imitation", "neural",
+    "computer vision", "point cloud", "isaac", "mujoco", "gazebo",
+]
+
+
+def is_relevant(listing: JobListing) -> bool:
+    """
+    Pre-filter: returns False for jobs that are clearly irrelevant.
+    - Title contains a blacklisted term (sales, HR, finance, etc.)
+    - Neither title nor first 200 chars of description contain any tech term
+    """
+    title = _normalize(listing.title)
+    desc_head = _normalize((listing.description or "")[:200])
+
+    # Hard blacklist
+    if any(neg in title for neg in NEGATIVE_TITLE_BLACKLIST):
+        return False
+
+    # Must have at least one tech relevance signal
+    combined = f"{title} {desc_head}"
+    return any(t in combined for t in TECH_RELEVANCE_TERMS)
 
 
 def _normalize(text: str) -> str:
@@ -214,7 +267,7 @@ def _description_depth_score(listing: JobListing) -> float:
 
 
 def score_listing(listing: JobListing, profile: CVProfile) -> JobListing:
-    """Compute composite score and attach matched keywords to the listing."""
+    """Compute composite score, attach matched keywords and score breakdown."""
     kw_score, matched = _keyword_score(listing, profile)
     t_score  = _title_score(listing)
     s_score  = _seniority_score(listing, profile)
@@ -225,14 +278,28 @@ def score_listing(listing: JobListing, profile: CVProfile) -> JobListing:
 
     listing.score = kw_score + t_score + s_score + r_score + d_score + l_score + jt_score
     listing.matched_keywords = matched
+    # Attach breakdown as a dynamic attribute
+    listing._score_breakdown = {
+        "keywords":    round(kw_score, 1),
+        "title":       round(t_score, 1),
+        "seniority":   round(s_score, 1),
+        "recency":     round(r_score, 1),
+        "description": round(d_score, 1),
+        "location":    round(l_score, 1),
+        "job_type":    round(jt_score, 1),
+    }
     return listing
 
 
 def rank_listings(
     listings: List[JobListing], profile: CVProfile, top_n: int = 50
 ) -> List[JobListing]:
-    """Score all listings, return top_n sorted by score descending."""
-    scored = [score_listing(j, profile) for j in listings]
+    """
+    Pre-filter irrelevant jobs, score remaining, return top_n sorted by score.
+    """
+    relevant = [j for j in listings if is_relevant(j)]
+    filtered_count = len(listings) - len(relevant)
+    scored = [score_listing(j, profile) for j in relevant]
     scored.sort(key=lambda j: j.score, reverse=True)
     return scored[:top_n]
 
