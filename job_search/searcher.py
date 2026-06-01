@@ -432,6 +432,7 @@ def search_jobs(
 def deduplicate_by_title(listings: List[JobListing]) -> List[JobListing]:
     """
     Remove near-duplicate listings with the same (company, normalised title).
+    When a job appears on multiple sites, merges the source names (e.g. "linkedin, indeed").
     Keeps the entry with the longer description (more data = better scoring).
     """
     seen: dict = {}   # key → index in result list
@@ -442,12 +443,144 @@ def deduplicate_by_title(listings: List[JobListing]) -> List[JobListing]:
         key = (listing.company.lower().strip(), norm)
         if key in seen:
             idx = seen[key]
-            if len(listing.description) > len(result[idx].description):
-                result[idx] = listing
+            existing = result[idx]
+            # Merge source names so user sees all sites this job appeared on
+            existing_sources = {s.strip() for s in existing.source.split(",")}
+            new_source = listing.source.strip()
+            if new_source and new_source not in existing_sources:
+                existing.source = existing.source + ", " + new_source
+            # Prefer the entry with more description text
+            if len(listing.description) > len(existing.description):
+                existing.description = listing.description
+                if listing.url:
+                    existing.url = listing.url
         else:
             seen[key] = len(result)
             result.append(listing)
     return result
+
+
+# ---------------------------------------------------------------------------
+# Greenhouse ATS scraper (public JSON API — no auth required)
+# ---------------------------------------------------------------------------
+def _scrape_greenhouse(slug: str, results_wanted: int = 40) -> List[JobListing]:
+    """Scrape jobs from a Greenhouse-powered career page via their public API."""
+    try:
+        import requests
+        import re as _re
+    except ImportError:
+        return []
+    listings: List[JobListing] = []
+    try:
+        url = f"https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true"
+        resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=12)
+        if resp.status_code != 200:
+            return []
+        jobs = resp.json().get("jobs", [])
+        for job in jobs[:results_wanted]:
+            title = job.get("title", "")
+            if not title:
+                continue
+            offices = job.get("offices") or []
+            loc = ", ".join(o.get("name", "") for o in offices if o.get("name")) or "—"
+            job_url = job.get("absolute_url", "")
+            updated = (job.get("updated_at") or "")[:10]
+            content = job.get("content", "") or ""
+            desc = _re.sub(r"<[^>]+>", " ", content)[:600].strip()
+            listings.append(JobListing(
+                title=title, company=slug, location=loc, description=desc,
+                url=job_url, source="greenhouse", date_posted=updated,
+                job_type="Full-time",
+            ))
+    except Exception:
+        pass
+    return listings
+
+
+# ---------------------------------------------------------------------------
+# Lever ATS scraper (public JSON API — no auth required)
+# ---------------------------------------------------------------------------
+def _scrape_lever(slug: str, results_wanted: int = 40) -> List[JobListing]:
+    """Scrape jobs from a Lever-powered career page via their public JSON API."""
+    try:
+        import requests
+        import re as _re
+    except ImportError:
+        return []
+    listings: List[JobListing] = []
+    try:
+        url = f"https://api.lever.co/v0/postings/{slug}?mode=json"
+        resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=12)
+        if resp.status_code != 200:
+            return []
+        jobs = resp.json()
+        if not isinstance(jobs, list):
+            return []
+        for job in jobs[:results_wanted]:
+            title = job.get("text", "")
+            if not title:
+                continue
+            cats = job.get("categories", {}) or {}
+            loc  = cats.get("location", "") or cats.get("allLocations", [""])[0] if cats.get("allLocations") else ""
+            job_url = job.get("hostedUrl", "") or job.get("applyUrl", "")
+            created = job.get("createdAt", 0) or 0
+            date_str = ""
+            if created:
+                try:
+                    from datetime import datetime as _dt
+                    date_str = _dt.fromtimestamp(created / 1000).strftime("%Y-%m-%d")
+                except Exception:
+                    pass
+            desc_html = (job.get("descriptionBody") or job.get("description") or "")
+            desc = _re.sub(r"<[^>]+>", " ", desc_html)[:600].strip()
+            listings.append(JobListing(
+                title=title, company=slug, location=loc or "—", description=desc,
+                url=job_url, source="lever", date_posted=date_str,
+                job_type="Full-time",
+            ))
+    except Exception:
+        pass
+    return listings
+
+
+# ---------------------------------------------------------------------------
+# Robotics companies catalogue
+# ---------------------------------------------------------------------------
+ROBOTICS_COMPANIES: List[Dict[str, Any]] = [
+    # ── Germany ──────────────────────────────────────────────────────────────
+    {"name": "KUKA",                "country": "Germany",  "city": "Augsburg",           "ats": None,         "slug": "",                  "website": "https://www.kuka.com"},
+    {"name": "Franka Robotics",     "country": "Germany",  "city": "Munich",             "ats": None,         "slug": "",                  "website": "https://www.franka.de"},
+    {"name": "Sereact",             "country": "Germany",  "city": "Stuttgart",          "ats": "greenhouse", "slug": "sereact",            "website": "https://sereact.ai"},
+    {"name": "Magazino",            "country": "Germany",  "city": "Munich",             "ats": "greenhouse", "slug": "magazino",           "website": "https://www.magazino.eu"},
+    {"name": "Neura Robotics",      "country": "Germany",  "city": "Metzingen",          "ats": None,         "slug": "",                  "website": "https://www.neura-robotics.com"},
+    {"name": "Wandelbots",          "country": "Germany",  "city": "Dresden",            "ats": None,         "slug": "",                  "website": "https://wandelbots.com"},
+    {"name": "Agile Robots",        "country": "Germany",  "city": "Munich",             "ats": None,         "slug": "",                  "website": "https://www.agile-robots.de"},
+    {"name": "DLR",                 "country": "Germany",  "city": "Oberpfaffenhofen",   "ats": None,         "slug": "",                  "website": "https://www.dlr.de"},
+    {"name": "Reactive Robotics",   "country": "Germany",  "city": "Munich",             "ats": None,         "slug": "",                  "website": "https://www.reactive-robotics.com"},
+    {"name": "Schunk",              "country": "Germany",  "city": "Lauffen am Neckar",  "ats": None,         "slug": "",                  "website": "https://schunk.com"},
+    {"name": "igus",                "country": "Germany",  "city": "Cologne",            "ats": None,         "slug": "",                  "website": "https://www.igus.de"},
+    {"name": "Siemens",             "country": "Germany",  "city": "Munich",             "ats": None,         "slug": "",                  "website": "https://new.siemens.com"},
+    {"name": "Bosch",               "country": "Germany",  "city": "Stuttgart",          "ats": None,         "slug": "",                  "website": "https://www.bosch.com"},
+    {"name": "BMW Group",           "country": "Germany",  "city": "Munich",             "ats": None,         "slug": "",                  "website": "https://www.bmw.com"},
+    {"name": "Mercedes-Benz",       "country": "Germany",  "city": "Stuttgart",          "ats": None,         "slug": "",                  "website": "https://www.mercedes-benz.com"},
+    {"name": "ABB Robotics",        "country": "Germany",  "city": "Friedberg",          "ats": None,         "slug": "",                  "website": "https://new.abb.com"},
+    {"name": "Fanuc Germany",       "country": "Germany",  "city": "Neuhausen ob Eck",   "ats": None,         "slug": "",                  "website": "https://www.fanuc.eu"},
+    {"name": "Rethink Robotics",    "country": "Germany",  "city": "Frankfurt",          "ats": None,         "slug": "",                  "website": "https://www.rethinkrobotics.com"},
+    {"name": "Intrinsic",           "country": "Germany",  "city": "Munich",             "ats": "greenhouse", "slug": "intrinsic",          "website": "https://intrinsic.ai"},
+    # ── Scandinavia / Europe ─────────────────────────────────────────────────
+    {"name": "Universal Robots",    "country": "Denmark",  "city": "Odense",             "ats": "greenhouse", "slug": "universalrobots",    "website": "https://www.universal-robots.com"},
+    {"name": "1X Technologies",     "country": "Norway",   "city": "Oslo",               "ats": "lever",      "slug": "1xtechnologies",     "website": "https://www.1x.tech"},
+    # ── USA (often hire remote / EU offices) ─────────────────────────────────
+    {"name": "Boston Dynamics",     "country": "USA",      "city": "Waltham, MA",        "ats": "greenhouse", "slug": "bostondynamics",     "website": "https://www.bostondynamics.com"},
+    {"name": "Agility Robotics",    "country": "USA",      "city": "Corvallis, OR",      "ats": "greenhouse", "slug": "agilityrobotics",    "website": "https://agilityrobotics.com"},
+    {"name": "Figure AI",           "country": "USA",      "city": "Sunnyvale, CA",      "ats": "lever",      "slug": "figureai",           "website": "https://figure.ai"},
+    {"name": "Apptronik",           "country": "USA",      "city": "Austin, TX",         "ats": "greenhouse", "slug": "apptronik",          "website": "https://apptronik.com"},
+    {"name": "Physical Intelligence","country": "USA",     "city": "San Francisco, CA",  "ats": None,         "slug": "",                  "website": "https://www.physicalintelligence.company"},
+    {"name": "Skild AI",            "country": "USA",      "city": "Pittsburgh, PA",     "ats": "greenhouse", "slug": "skildai",            "website": "https://www.skild.ai"},
+    {"name": "Clearpath Robotics",  "country": "Canada",   "city": "Waterloo, ON",       "ats": "greenhouse", "slug": "clearpathrobotics",  "website": "https://clearpathrobotics.com"},
+    {"name": "NVIDIA Robotics",     "country": "USA",      "city": "Santa Clara, CA",    "ats": None,         "slug": "",                  "website": "https://www.nvidia.com"},
+    {"name": "Piaggio Fast Forward","country": "USA",      "city": "Boston, MA",         "ats": None,         "slug": "",                  "website": "https://piaggiofastforward.com"},
+]
 
 
 def search_company(

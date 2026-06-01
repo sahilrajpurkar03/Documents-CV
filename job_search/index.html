@@ -84,11 +84,23 @@
   .src-badge { display: inline-block; border-radius: 4px; padding: 1px 7px; font-size: 0.72rem; font-weight: 600; }
   .src-linkedin   { background: rgba(10,102,194,.18); color: #60a5fa; }
   .src-indeed     { background: rgba(34,197,94,.12);  color: #86efac; }
-  .src-glassdoor  { background: rgba(251,191,36,.12); color: #fbbf24; }
-  .src-google     { background: rgba(167,139,250,.12);color: #a78bfa; }
   .src-stepstone  { background: rgba(239,68,68,.15);  color: #fca5a5; }
   .src-xing       { background: rgba(16,185,129,.15); color: #6ee7b7; }
   .src-other      { background: rgba(148,163,184,.1); color: var(--muted); }
+  .src-google     { background: rgba(167,139,250,.12);color: #a78bfa; }
+  .src-greenhouse { background: rgba(34,197,94,.12);  color: #86efac; }
+  .src-lever      { background: rgba(251,191,36,.12); color: #fbbf24; }
+
+  /* ── Robotics company cards ── */
+  #rc-companies { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 28px; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; max-height: 120px; overflow-y: auto; }
+  .co-card { display: inline-flex; align-items: center; gap: 5px; background: var(--bg); border: 1px solid var(--border); border-radius: 5px; padding: 3px 9px; font-size: 0.78rem; }
+  .co-card a { color: var(--accent); text-decoration: none; }
+  .co-card a:hover { text-decoration: underline; }
+  .co-flag { color: var(--muted); font-size: 0.74rem; }
+  .co-ats  { font-size: 0.68rem; padding: 1px 5px; border-radius: 3px; margin-left: 2px; }
+  .co-ats-greenhouse { background: rgba(34,197,94,.15); color: #86efac; }
+  .co-ats-lever      { background: rgba(251,191,36,.15); color: #fbbf24; }
+  .co-ats-jobspy     { background: rgba(148,163,184,.1); color: var(--muted); }
   .kw-chip { display: inline-block; background: rgba(56,189,248,.1); color: var(--accent); border-radius: 10px; padding: 1px 7px; font-size: 0.72rem; margin: 1px; }
   .score-bar { display: inline-block; height: 5px; border-radius: 3px; background: var(--accent); margin-left: 5px; vertical-align: middle; opacity: .65; }
 
@@ -140,6 +152,7 @@
 <div class="tab-bar">
   <button class="tab-btn active" id="tab-region-btn" onclick="switchTab('region')">🌍 Region Search</button>
   <button class="tab-btn" id="tab-company-btn" onclick="switchTab('company')">🏢 Company Search</button>
+  <button class="tab-btn" id="tab-robotics-btn" onclick="switchTab('robotics')">🤖 Robotics Cos</button>
   <button class="tab-btn" id="tab-browse-btn" onclick="switchTab('browse')">📂 Browse Results</button>
 </div>
 
@@ -262,6 +275,67 @@
   </div>
 </div>
 
+<!-- ══════════════════════ ROBOTICS COMPANIES ═══════════════════════════ -->
+<div class="tab-panel" id="tab-robotics">
+  <div class="ctrl-bar">
+    <div class="ctrl-group">
+      <label>Country filter</label>
+      <select id="rc-country" onchange="loadRoboticsCompanies()">
+        <option value="All">🌍 All Countries</option>
+        <option value="Germany" selected>🇩🇪 Germany</option>
+        <option value="Denmark">🇩🇰 Denmark</option>
+        <option value="Norway">🇳🇴 Norway</option>
+        <option value="USA">🇺🇸 USA</option>
+        <option value="Canada">🇨🇦 Canada</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label>Top N results</label>
+      <select id="rc-top">
+        <option value="20">20</option>
+        <option value="40" selected>40</option>
+        <option value="60">60</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" id="rc-search-btn" onclick="startRoboticsSearch()">Search All Career Pages ↗</button>
+    <button class="btn btn-ghost"   id="rc-stop-btn"   onclick="stopRoboticsSearch()" style="display:none">⏹ Stop</button>
+  </div>
+
+  <!-- Company cards (populated by JS) -->
+  <div id="rc-companies"></div>
+
+  <!-- Progress log -->
+  <div id="prog-robotics" style="background:var(--bg);border-bottom:1px solid var(--border);padding:10px 28px;font-size:0.82rem;color:var(--muted);display:none;flex-shrink:0;max-height:90px;overflow-y:auto;"></div>
+
+  <div class="result-toolbar" id="rc-toolbar" style="display:none">
+    <input id="rc-filter" type="text" placeholder="Filter results…" oninput="filterResults('rc')">
+    <label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;color:var(--muted);cursor:pointer;white-space:nowrap">
+      <input type="checkbox" id="rc-hide-applied" checked onchange="filterResults('rc')"> Hide applied
+    </label>
+    <span id="rc-count" style="color:var(--muted);font-size:0.82rem;margin-left:auto"></span>
+    <span id="rc-saved" style="color:var(--green);font-size:0.82rem"></span>
+  </div>
+  <div class="table-wrap" id="rc-table-wrap">
+    <div class="empty-msg" id="rc-empty">Select a country and click "Search All Career Pages" to scan known robotics company careers.</div>
+    <table id="rc-table" style="display:none">
+      <thead><tr>
+        <th class="col-rank">#</th>
+        <th class="col-score" onclick="sortResults('rc','score')">Score ↕</th>
+        <th class="col-title" onclick="sortResults('rc','title')">Title ↕</th>
+        <th class="col-co"    onclick="sortResults('rc','company')">Company ↕</th>
+        <th class="col-loc">Location</th>
+        <th class="col-src">Source</th>
+        <th class="col-type">Type</th>
+        <th class="col-sal">Salary</th>
+        <th class="col-kw">Matched Keywords</th>
+        <th class="col-date" onclick="sortResults('rc','date_posted')">Posted ↕</th>
+        <th class="col-link">Apply</th>
+      </tr></thead>
+      <tbody id="rc-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
 <!-- ═══════════════════════════ BROWSE RESULTS ═══════════════════════════ -->
 <div class="tab-panel" id="tab-browse">
   <div id="browse-file-bar">
@@ -300,8 +374,13 @@
 
 <script>
 // ── State ──────────────────────────────────────────────────────────────────
-const DATA   = { r: [], c: [], b: [] };
-const SORTED = { r: { col: 'score', asc: false }, c: { col: 'score', asc: false }, b: { col: 'score', asc: false } };
+const DATA   = { r: [], c: [], b: [], rc: [] };
+const SORTED = {
+  r:  { col: 'score', asc: false },
+  c:  { col: 'score', asc: false },
+  b:  { col: 'score', asc: false },
+  rc: { col: 'score', asc: false },
+};
 let rSSE = null, cSSE = null;
 
 // ── Init ───────────────────────────────────────────────────────────────────
@@ -322,6 +401,9 @@ async function init() {
     sel.value = files[0];
     loadBrowseFile();
   }
+
+  // Pre-populate robotics company cards
+  loadRoboticsCompanies();
 }
 
 // ── Tab switching ──────────────────────────────────────────────────────────
@@ -499,6 +581,105 @@ function finishCompanySearch() {
 function stopCompanySearch() {
   if (cSSE) { cSSE.close(); cSSE = null; }
   finishCompanySearch();
+  showToast('Search stopped.');
+}
+
+// ── Robotics Companies Tab ─────────────────────────────────────────────────
+const COUNTRY_FLAGS = { Germany:'🇩🇪', USA:'🇺🇸', Denmark:'🇩🇰', Norway:'🇳🇴',
+                        Canada:'🇨🇦', Austria:'🇦🇹', Switzerland:'🇨🇭', Japan:'🇯🇵' };
+
+async function loadRoboticsCompanies() {
+  const country = document.getElementById('rc-country').value;
+  const res      = await fetch(`/api/robotics-companies?country=${encodeURIComponent(country)}`);
+  const companies = await res.json();
+  const container = document.getElementById('rc-companies');
+  container.innerHTML = companies.map(c => {
+    const flag   = COUNTRY_FLAGS[c.country] || '🌍';
+    const atsKey = c.ats || 'jobspy';
+    const atsBadge = `<span class="co-ats co-ats-${atsKey}">${atsKey}</span>`;
+    return `<span class="co-card">
+      <span class="co-flag">${flag}</span>
+      <a href="${esc(c.website)}" target="_blank">${esc(c.name)}</a>
+      <span class="co-flag">${esc(c.city)}</span>
+      ${atsBadge}
+    </span>`;
+  }).join('');
+}
+
+function startRoboticsSearch() {
+  const country = document.getElementById('rc-country').value;
+  const top_n   = document.getElementById('rc-top').value;
+
+  document.getElementById('rc-search-btn').disabled = true;
+  document.getElementById('rc-stop-btn').style.display = 'inline-block';
+  document.getElementById('rc-saved').textContent = '';
+  const prog = document.getElementById('prog-robotics');
+  prog.style.display = 'block';
+  prog.innerHTML = '';
+  setEmpty('rc', '<span class="spinner"></span> Scanning robotics company career pages…');
+
+  fetch('/api/search-robotics-companies', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ country, top_n: +top_n }),
+  }).then(res => {
+    if (!res.ok) { showToast('Search failed.', true); return; }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    function pump() {
+      reader.read().then(({ done, value }) => {
+        if (done) { finishRoboticsSearch(); return; }
+        buf += decoder.decode(value, { stream: true });
+        const parts = buf.split('\n\n');
+        buf = parts.pop();
+        parts.forEach(part => {
+          if (!part.startsWith('data:')) return;
+          try {
+            const obj = JSON.parse(part.slice(5).trim());
+            handleRoboticsEvent(obj);
+          } catch(e) {}
+        });
+        pump();
+      });
+    }
+    pump();
+  }).catch(e => { showToast('Network error: ' + e.message, true); finishRoboticsSearch(); });
+}
+
+function handleRoboticsEvent(obj) {
+  const prog = document.getElementById('prog-robotics');
+  if (obj.type === 'status' || obj.type === 'progress') {
+    const d = document.createElement('div');
+    d.className = 'prog-line';
+    d.textContent = obj.text;
+    prog.appendChild(d);
+    prog.scrollTop = prog.scrollHeight;
+  } else if (obj.type === 'done') {
+    DATA.rc = obj.jobs || [];
+    renderTable('rc', DATA.rc);
+    document.getElementById('rc-saved').textContent = obj.csv_file ? `Saved: ${obj.csv_file}` : '';
+    const stats = `✓ Done — ${obj.total} scraped → ${obj.unique} unique → ${obj.relevant} relevant → ${DATA.rc.length} ranked`;
+    const d = document.createElement('div');
+    d.className = 'prog-line done'; d.textContent = stats;
+    prog.appendChild(d);
+    finishRoboticsSearch();
+    showToast(`Found ${DATA.rc.length} robotics jobs!`);
+  } else if (obj.type === 'error') {
+    const d = document.createElement('div');
+    d.className = 'prog-line err'; d.textContent = '✕ ' + obj.text;
+    prog.appendChild(d);
+    finishRoboticsSearch();
+    showToast(obj.text, true);
+  }
+}
+
+function finishRoboticsSearch() {
+  document.getElementById('rc-search-btn').disabled = false;
+  document.getElementById('rc-stop-btn').style.display = 'none';
+}
+
+function stopRoboticsSearch() {
+  finishRoboticsSearch();
   showToast('Search stopped.');
 }
 

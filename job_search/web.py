@@ -32,7 +32,9 @@ try:
 except ImportError:
     print("[ERROR] Flask not installed. Run: pip install flask"); sys.exit(1)
 
-from searcher import REGIONS, search_jobs, search_company, build_search_terms_from_cv, deduplicate_by_title
+from searcher import (REGIONS, search_jobs, search_company, build_search_terms_from_cv,
+                      deduplicate_by_title, ROBOTICS_COMPANIES,
+                      _scrape_greenhouse, _scrape_lever)
 from scorer   import rank_listings, score_label, is_relevant
 from cv_parser import parse_cv
 
@@ -330,6 +332,141 @@ def api_search_company():
             jobs_out.append(jd)
         yield from send("done", {"jobs": jobs_out, "csv_file": csv_file.name,
                                   "total": len(listings)})
+
+    return Response(stream_with_context(generate()),
+                    mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+# ── Robotics companies catalogue ───────────────────────────────────────────
+@app.route("/api/robotics-companies")
+def api_robotics_companies():
+    country = request.args.get("country", "All").strip()
+    companies = ROBOTICS_COMPANIES
+    if country and country != "All":
+        companies = [c for c in companies if c.get("country") == country]
+    return jsonify(companies)
+
+
+# ── Robotics companies batch career-page search (streaming SSE) ────────────
+@app.route("/api/search-robotics-companies", methods=["POST"])
+def api_search_robotics_companies():
+    data    = request.json or {}
+    country = (data.get("country") or "All").strip()
+    top_n   = int(data.get("top_n", 40))
+
+    def generate():
+        def send(msg_type, payload):
+            yield f"data: {json.dumps({'type': msg_type, **payload})}\n\n"
+
+        yield from send("status", {"text": "Parsing CV..."})
+        try:
+            cv = _load_cv()
+        except Exception as e:
+            yield from send("error", {"text": str(e)}); return
+
+        companies = ROBOTICS_COMPANIES
+        if country and country != "All":
+            companies = [c for c in companies if c.get("country") == country]
+
+        yield from send("status", {"text": f"Scanning {len(companies)} robotics company career pages..."})
+
+        all_listings: list = []
+        seen_urls: set = set()
+
+        for co in companies:
+            name = co["name"]
+            ats  = co.get("ats")
+            slug = co.get("slug", "")
+
+            yield from send("progress", {"text": f"🔍 {name} ({co.get('country', '')})..."})
+
+            batch: list = []
+            # 1. Try direct ATS API first (fastest, most complete)
+            if ats == "greenhouse" and slug:
+                batch = _scrape_greenhouse(slug, 40)
+                for j in batch:
+                    j.company = name
+                # Fallback to jobspy if ATS slug was wrong / returned nothing
+                if not batch:
+                    try:
+                        batch = search_company(name, "Germany", 20,
+                                               ["linkedin", "indeed", "google"], verbose=False)
+                    except Exception:
+                        pass
+            elif ats == "lever" and slug:
+                batch = _scrape_lever(slug, 40)
+                for j in batch:
+                    j.company = name
+                if not batch:
+                    try:
+                        batch = search_company(name, "Germany", 20,
+                                               ["linkedin", "indeed", "google"], verbose=False)
+                    except Exception:
+                        pass
+            else:
+                # No known ATS slug — use jobspy
+                try:
+                    batch = search_company(name, "Germany", 20,
+                                           ["linkedin", "indeed", "google"], verbose=False)
+                except Exception:
+                    pass
+
+            added = 0
+            for listing in batch:
+                if listing.url and listing.url not in seen_urls:
+                    seen_urls.add(listing.url)
+                    all_listings.append(listing)
+                    added += 1
+                elif not listing.url:
+                    all_listings.append(listing)
+                    added += 1
+
+            yield from send("progress", {"text": f"   → {added} jobs at {name}"})
+
+        listings = deduplicate_by_title(all_listings)
+        relevant = [j for j in listings if is_relevant(j)]
+        yield from send("status", {"text": f"Scoring {len(relevant)}/{len(listings)} relevant listings..."})
+        ranked = rank_listings(listings, cv, top_n=top_n)
+
+        # Save CSV
+        from datetime import datetime as _dt
+        ts       = _dt.now().strftime("%Y%m%d_%H%M")
+        csv_file = _ROOT / f"jobs_robotics_{ts}.csv"
+        with open(csv_file, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=[
+                "rank", "score", "match_quality", "title", "company", "location",
+                "source", "job_type", "date_posted", "salary", "matched_keywords", "url",
+            ])
+            writer.writeheader()
+            for i, j in enumerate(ranked, 1):
+                row = j.to_dict()
+                row["match_quality"] = score_label(j.score)
+                row["rank"] = i
+                writer.writerow(row)
+
+        applied_urls, applied_keys = _applied_set()
+        jobs_out = []
+        for i, j in enumerate(ranked, 1):
+            jd = {
+                "rank": i, "score": round(j.score, 1),
+                "match_quality": score_label(j.score),
+                "title": j.title, "company": j.company,
+                "location": j.location, "source": j.source,
+                "job_type": j.job_type, "date_posted": j.date_posted,
+                "salary": j.salary,
+                "matched_keywords": ", ".join(j.matched_keywords[:10]),
+                "url": j.url,
+                "score_breakdown": getattr(j, "_score_breakdown", {}),
+            }
+            jd["applied"] = _is_applied(jd, applied_urls, applied_keys)
+            jobs_out.append(jd)
+
+        yield from send("done", {
+            "jobs": jobs_out, "csv_file": csv_file.name,
+            "total": len(all_listings), "unique": len(listings),
+            "relevant": len(relevant),
+        })
 
     return Response(stream_with_context(generate()),
                     mimetype="text/event-stream",
