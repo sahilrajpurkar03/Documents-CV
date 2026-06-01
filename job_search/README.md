@@ -8,7 +8,9 @@ Two modes: **region search** (broad sweep across a country) and **company search
 
 ## Quick Start
 
-### Web UI (recommended)
+> **Recommended:** Use the unified dashboard — `wsl bash run.sh` at the project root opens http://localhost:5000 with all tools in one page, including per-job Cover Letter, Save and Log buttons.
+
+### Standalone web UI (if you need just this tool)
 ```powershell
 wsl bash job_search/run_job_search.sh web
 ```

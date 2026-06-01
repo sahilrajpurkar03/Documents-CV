@@ -1,0 +1,1376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Job Hunt Dashboard</title>
+<style>
+  :root {
+    --bg:      #0f172a;
+    --surface: #1e293b;
+    --border:  #334155;
+    --accent:  #38bdf8;
+    --text:    #e2e8f0;
+    --muted:   #94a3b8;
+    --green:   #22c55e;
+    --yellow:  #fbbf24;
+    --orange:  #f97316;
+    --purple:  #a78bfa;
+    --red:     #ef4444;
+    --cyan:    #38bdf8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* ── Header ── */
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 28px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  header h1 { font-size: 1.15rem; color: var(--accent); }
+  header .subtitle { color: var(--muted); font-size: 0.8rem; margin-top: 2px; }
+
+  /* ── Tab bar ── */
+  .tab-bar { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 28px; flex-shrink: 0; }
+  .tab-btn { padding: 10px 20px; font-size: 0.88rem; background: none; border: none; border-bottom: 3px solid transparent; color: var(--muted); cursor: pointer; transition: color .15s, border-color .15s; }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-btn:hover  { color: var(--text); }
+  .tab-panel { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+  .tab-panel.active { display: flex; }
+
+  /* ── Controls ── */
+  .ctrl-bar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 28px; display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; flex-shrink: 0; }
+  .ctrl-group { display: flex; flex-direction: column; gap: 4px; }
+  .ctrl-group label { color: var(--muted); font-size: 0.76rem; }
+  .ctrl-group select, .ctrl-group input { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 7px 10px; border-radius: 6px; font-size: 0.86rem; }
+  .ctrl-group select:focus, .ctrl-group input:focus { outline: none; border-color: var(--accent); }
+  .btn { padding: 7px 18px; border-radius: 6px; font-size: 0.88rem; cursor: pointer; border: none; transition: opacity .15s; }
+  .btn:hover:not(:disabled) { opacity: 0.85; }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); color: #0f172a; font-weight: 700; align-self: flex-end; }
+  .btn-ghost   { background: var(--surface); color: var(--text); border: 1px solid var(--border); align-self: flex-end; }
+  .btn-green   { background: var(--green); color: #0f172a; font-weight: 600; }
+  .btn-danger  { background: var(--red); color: #fff; }
+
+  /* ── Progress log ── */
+  .prog-wrap { background: var(--bg); border-bottom: 1px solid var(--border); padding: 8px 28px; font-size: 0.8rem; color: var(--muted); display: none; flex-shrink: 0; max-height: 80px; overflow-y: auto; }
+  .prog-line { margin-bottom: 1px; }
+  .prog-line.done { color: var(--green); }
+  .prog-line.err  { color: var(--red); }
+
+  /* ── Result toolbar ── */
+  .result-toolbar { display: flex; align-items: center; gap: 10px; padding: 10px 28px; flex-wrap: wrap; flex-shrink: 0; }
+  .result-toolbar input { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 6px 12px; border-radius: 6px; font-size: 0.86rem; width: 200px; }
+  .result-toolbar input:focus { outline: none; border-color: var(--accent); }
+
+  /* ── Table ── */
+  .table-wrap { flex: 1; overflow: auto; padding: 0 28px 28px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 10px; }
+  th { background: var(--surface); color: var(--accent); padding: 8px 8px; text-align: left; position: sticky; top: 0; white-space: nowrap; cursor: pointer; user-select: none; }
+  th:hover { color: var(--text); }
+  td { padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:hover td { background: rgba(56,189,248,.04); }
+  .col-rank  { width: 32px; text-align: center; color: var(--muted); }
+  .col-score { width: 68px; text-align: center; }
+  .col-title { min-width: 190px; font-weight: 500; }
+  .col-co    { min-width: 120px; }
+  .col-loc   { min-width: 100px; color: var(--muted); font-size: 0.78rem; }
+  .col-src   { width: 76px; }
+  .col-sal   { min-width: 100px; font-size: 0.78rem; color: var(--green); }
+  .col-kw    { min-width: 160px; }
+  .col-date  { width: 84px; color: var(--muted); font-size: 0.78rem; }
+  .col-acts  { width: 178px; white-space: nowrap; }
+
+  /* ── Action buttons on job rows ── */
+  .act-small { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 4px; padding: 2px 7px; font-size: 0.72rem; cursor: pointer; margin-right: 3px; transition: all .12s; }
+  .act-small:hover { border-color: var(--accent); color: var(--accent); }
+  .act-cl:hover  { border-color: var(--purple) !important; color: var(--purple) !important; }
+  .act-sv:hover  { border-color: var(--green)  !important; color: var(--green)  !important; }
+  .act-log:hover { border-color: var(--yellow) !important; color: var(--yellow) !important; }
+  .apply-btn { display: inline-block; background: var(--accent); color: #0f172a; border-radius: 4px; padding: 2px 9px; font-size: 0.72rem; font-weight: 700; text-decoration: none; white-space: nowrap; }
+  .apply-btn:hover { opacity: 0.85; }
+  .applied-badge { display: inline-block; background: rgba(34,197,94,.15); color: #4ade80; border: 1px solid rgba(34,197,94,.3); border-radius: 4px; padding: 2px 9px; font-size: 0.72rem; font-weight: 600; }
+  tr.row-applied td { opacity: 0.4; }
+
+  /* ── Source & quality badges ── */
+  .src-badge { display: inline-block; border-radius: 4px; padding: 1px 6px; font-size: 0.7rem; font-weight: 600; }
+  .src-linkedin   { background: rgba(10,102,194,.18); color: #60a5fa; }
+  .src-indeed     { background: rgba(34,197,94,.12);  color: #86efac; }
+  .src-stepstone  { background: rgba(239,68,68,.15);  color: #fca5a5; }
+  .src-xing       { background: rgba(16,185,129,.15); color: #6ee7b7; }
+  .src-google     { background: rgba(167,139,250,.12);color: #a78bfa; }
+  .src-greenhouse { background: rgba(34,197,94,.12);  color: #86efac; }
+  .src-lever      { background: rgba(251,191,36,.12); color: #fbbf24; }
+  .src-other      { background: rgba(148,163,184,.1); color: var(--muted); }
+  .q-Excellent { color: #a78bfa; font-weight: 700; }
+  .q-Very.Good, .q-Good { color: #22c55e; }
+  .q-Fair      { color: #fbbf24; }
+  .q-Low       { color: #f87171; }
+  .kw-chip { display: inline-block; background: rgba(56,189,248,.1); color: var(--accent); border-radius: 10px; padding: 1px 6px; font-size: 0.7rem; margin: 1px; }
+  .score-bar { display: inline-block; height: 4px; border-radius: 2px; background: var(--accent); margin-left: 4px; vertical-align: middle; opacity: .6; }
+  .score-cell { position: relative; cursor: help; }
+  .breakdown-tip { display: none; position: absolute; left: 50%; transform: translateX(-50%); top: calc(100% + 4px); z-index: 100; background: #0f172a; border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; min-width: 200px; font-size: 0.76rem; white-space: nowrap; box-shadow: 0 8px 24px rgba(0,0,0,.6); }
+  .score-cell:hover .breakdown-tip { display: block; }
+  .bd-row { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 3px; }
+  .bd-label { color: var(--muted); }
+  .bd-val   { color: var(--text); font-weight: 600; }
+  .bd-bar   { height: 3px; border-radius: 2px; background: var(--accent); margin-top: 1px; opacity: .5; }
+  .empty-msg { text-align: center; padding: 50px 24px; color: var(--muted); font-size: 0.88rem; }
+  .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .65s linear infinite; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Robotics company cards ── */
+  #rc-companies { display: flex; flex-wrap: wrap; gap: 5px; padding: 10px 28px; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; max-height: 110px; overflow-y: auto; }
+  .co-card { display: inline-flex; align-items: center; gap: 4px; background: var(--bg); border: 1px solid var(--border); border-radius: 5px; padding: 2px 8px; font-size: 0.76rem; }
+  .co-card a { color: var(--accent); text-decoration: none; }
+  .co-card a:hover { text-decoration: underline; }
+  .co-ats  { font-size: 0.66rem; padding: 1px 5px; border-radius: 3px; margin-left: 2px; }
+  .co-ats-greenhouse { background: rgba(34,197,94,.15); color: #86efac; }
+  .co-ats-lever      { background: rgba(251,191,36,.15); color: #fbbf24; }
+  .co-ats-jobspy     { background: rgba(148,163,184,.1); color: var(--muted); }
+
+  /* ════════════════════════════════════════════════════ */
+  /* ── APPLICATION LOG tab ────────────────────────────── */
+  /* ════════════════════════════════════════════════════ */
+  #log-pipeline { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 28px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .pipe-chip { background: var(--bg); border: 1px solid var(--border); border-radius: 20px; padding: 3px 12px; font-size: 0.8rem; cursor: pointer; transition: border-color .15s; }
+  .pipe-chip:hover, .pipe-chip.active { border-color: var(--accent); color: var(--accent); }
+  .pipe-chip .count { font-weight: 700; margin-left: 3px; }
+  #log-toolbar { display: flex; align-items: center; gap: 10px; padding: 12px 28px; flex-wrap: wrap; flex-shrink: 0; }
+  #log-search { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 7px 12px; border-radius: 6px; font-size: 0.88rem; width: 210px; }
+  #log-search:focus { outline: none; border-color: var(--accent); }
+  #log-filter-active { accent-color: var(--accent); cursor: pointer; }
+  #log-table-wrap { flex: 1; overflow: auto; padding: 0 28px 28px; }
+  #log-table-wrap table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 12px; }
+  #log-table-wrap th { background: var(--surface); color: var(--accent); padding: 8px 10px; text-align: left; position: sticky; top: 0; white-space: nowrap; cursor: pointer; user-select: none; }
+  #log-table-wrap th:hover { color: #7dd3fc; }
+  #log-table-wrap th.sorted { color: #fff; }
+  #log-table-wrap td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  #log-table-wrap tr:hover td { background: rgba(56,189,248,.04); }
+  .sort-arrow { font-size: 0.68rem; margin-left: 3px; opacity: 0.6; }
+  .l-col-id    { width: 42px; color: var(--muted); }
+  .l-col-title { min-width: 190px; font-weight: 500; }
+  .l-col-co    { min-width: 140px; }
+  .l-col-loc   { min-width: 110px; color: var(--muted); }
+  .l-col-src   { width: 86px; color: var(--muted); }
+  .l-col-date  { width: 96px; color: var(--muted); white-space: nowrap; }
+  .l-col-notes { min-width: 150px; color: var(--muted); font-size: 0.8rem; }
+  .l-col-acts  { width: 108px; white-space: nowrap; }
+  a.job-link { color: var(--accent); text-decoration: none; font-size: 0.78rem; }
+  a.job-link:hover { text-decoration: underline; }
+  /* status badges */
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 12px; font-size: 0.76rem; font-weight: 600; white-space: nowrap; }
+  .s-saved      { background:#1e293b; color:#94a3b8; border:1px solid #334155; }
+  .s-applied    { background:#0c3050; color:#38bdf8; }
+  .s-awaiting   { background:#3b2b00; color:#fbbf24; }
+  .s-interview  { background:#052e16; color:#22c55e; }
+  .s-assessment { background:#2d1e00; color:#fb923c; }
+  .s-offer      { background:#2e1065; color:#a78bfa; }
+  .s-rejected   { background:#2d0f0f; color:#f87171; }
+  .s-withdrawn  { background:#1e293b; color:#64748b; }
+  .row-act-btn { background: none; border: 1px solid var(--border); color: var(--text); border-radius: 4px; padding: 2px 7px; font-size: 0.73rem; cursor: pointer; margin-right: 3px; }
+  .row-act-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .row-act-del { border-color: transparent; color: var(--muted); }
+  .row-act-del:hover { border-color: var(--red) !important; color: var(--red) !important; }
+  #log-empty { text-align: center; padding: 50px 0; color: var(--muted); }
+  #log-empty .big { font-size: 2.2rem; }
+
+  /* ── Detail side panel ── */
+  #log-detail-panel { display: none; position: fixed; right: 0; top: 0; bottom: 0; width: 360px; background: var(--surface); border-left: 1px solid var(--border); padding: 22px; overflow-y: auto; z-index: 50; }
+  #log-detail-panel.open { display: block; }
+  #log-detail-panel h3 { color: var(--accent); font-size: 0.98rem; margin-bottom: 3px; }
+  .dp-co { color: var(--muted); font-size: 0.86rem; margin-bottom: 14px; }
+  .dp-row { display: flex; justify-content: space-between; font-size: 0.84rem; margin-bottom: 7px; border-bottom: 1px solid var(--border); padding-bottom: 7px; }
+  .dp-row span:first-child { color: var(--muted); }
+  .history-item { font-size: 0.8rem; padding: 5px 0; border-bottom: 1px solid var(--border); }
+  .h-date { color: var(--muted); font-size: 0.74rem; }
+  .close-panel { position: absolute; top: 12px; right: 16px; background: none; border: none; color: var(--muted); font-size: 1.2rem; cursor: pointer; }
+  .close-panel:hover { color: var(--text); }
+  .section-title { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: .06em; margin: 16px 0 6px; }
+
+  /* ══════════════════════════════════════════════════════ */
+  /* ── COVER LETTER MODAL ─────────────────────────────── */
+  /* ══════════════════════════════════════════════════════ */
+  .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 100; align-items: center; justify-content: center; }
+  .modal-bg.open { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 26px; width: 100%; max-width: 520px; position: relative; }
+  .modal.wide { max-width: 760px; }
+  .modal h2 { color: var(--accent); font-size: 1.02rem; margin-bottom: 18px; }
+  .modal .close { position: absolute; top: 12px; right: 16px; background: none; border: none; color: var(--muted); font-size: 1.2rem; cursor: pointer; }
+  .modal .close:hover { color: var(--text); }
+
+  /* Cover letter modal specifically */
+  .modal-cl-box { max-width: 900px; width: 94vw; height: 88vh; display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+  .cl-head { padding: 16px 22px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; display: flex; align-items: flex-start; justify-content: space-between; }
+  .cl-head h2 { margin-bottom: 0; }
+  .cl-job-info { color: var(--muted); font-size: 0.82rem; margin-top: 3px; }
+  .cl-opts { display: flex; gap: 12px; padding: 10px 22px; border-bottom: 1px solid var(--border); flex-shrink: 0; flex-wrap: wrap; align-items: flex-end; }
+  .cl-opt { display: flex; flex-direction: column; gap: 3px; }
+  .cl-opt label { color: var(--muted); font-size: 0.74rem; }
+  .cl-opt select, .cl-opt input { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; }
+  .cl-opt select:focus, .cl-opt input:focus { outline: none; border-color: var(--accent); }
+  .cl-body { flex: 1; overflow: auto; padding: 14px 22px; display: flex; flex-direction: column; gap: 8px; }
+  .cl-label-row { display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+  .cl-label-row span { color: var(--muted); font-size: 0.76rem; }
+  #cl-text { flex: 1; width: 100%; min-height: 320px; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: 'Segoe UI', sans-serif; font-size: 0.86rem; line-height: 1.7; padding: 14px; border-radius: 6px; resize: none; }
+  #cl-text:focus { outline: none; border-color: var(--accent); }
+  .cl-tex-hint { font-size: 0.74rem; color: var(--muted); }
+  .cl-foot { padding: 10px 22px; border-top: 1px solid var(--border); display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+  #cl-status { color: var(--muted); font-size: 0.8rem; margin-left: auto; }
+
+  /* ── Log form modals ── */
+  .form-row { margin-bottom: 12px; }
+  .form-row label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; }
+  .form-row input, .form-row select, .form-row textarea {
+    width: 100%; background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); padding: 7px 10px; border-radius: 6px; font-size: 0.88rem; font-family: inherit;
+  }
+  .form-row input:focus, .form-row select:focus, .form-row textarea:focus { outline: none; border-color: var(--accent); }
+  .form-row textarea { resize: vertical; min-height: 68px; }
+  .form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+
+  /* ── Add modal tab bar ── */
+  .add-tab-bar { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+  .add-tab-btn { padding: 7px 16px; font-size: 0.84rem; background: none; border: none; border-bottom: 3px solid transparent; color: var(--muted); cursor: pointer; }
+  .add-tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .add-tab-pane { display: none; }
+  .add-tab-pane.active { display: block; }
+  #add-url-input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 6px; font-size: 0.9rem; margin-bottom: 8px; }
+  #add-url-input:focus { outline: none; border-color: var(--accent); }
+  #add-url-preview { padding: 9px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; font-size: 0.82rem; color: var(--muted); min-height: 40px; margin-bottom: 12px; }
+  #add-file-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+  #add-file-sel { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 6px; font-size: 0.86rem; flex: 1; min-width: 180px; }
+  #add-search { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 6px; font-size: 0.86rem; width: 150px; }
+  #add-table-wrap { border: 1px solid var(--border); border-radius: 6px; max-height: 250px; overflow-y: auto; margin-bottom: 10px; }
+  #add-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  #add-table th { background: var(--bg); color: var(--accent); padding: 6px 8px; text-align: left; position: sticky; top: 0; }
+  #add-table td { padding: 5px 8px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  #add-table tr.pick-row:hover td { background: rgba(56,189,248,.06); }
+  #add-table tr.pick-row.sel td { background: rgba(56,189,248,.14); }
+  #add-preview { font-size: 0.82rem; padding: 7px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); margin-bottom: 12px; min-height: 32px; }
+  .pick-score { color: var(--green); font-weight: 600; }
+  .pv-title { color: var(--text); font-weight: 600; }
+
+  /* ── Toast ── */
+  #toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: var(--green); color: #fff; padding: 9px 22px; border-radius: 6px; font-size: 0.86rem; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 300; white-space: nowrap; }
+  #toast.show { opacity: 1; }
+  #toast.err  { background: var(--red); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🚀 Job Hunt Dashboard</h1>
+    <div class="subtitle" id="header-subtitle">Job Search · Cover Letter · Application Log</div>
+  </div>
+</header>
+
+<!-- ── Tab bar ── -->
+<div class="tab-bar">
+  <button class="tab-btn active" id="tab-region-btn"  onclick="switchTab('region')">🌍 Region Search</button>
+  <button class="tab-btn"        id="tab-company-btn" onclick="switchTab('company')">🏢 Company Search</button>
+  <button class="tab-btn"        id="tab-robotics-btn"onclick="switchTab('robotics')">🤖 Robotics Cos</button>
+  <button class="tab-btn"        id="tab-log-btn"     onclick="switchTab('log')">📋 Log</button>
+</div>
+
+<!-- ═══════════════════════════ REGION SEARCH ════════════════════════════ -->
+<div class="tab-panel active" id="tab-region">
+  <div class="ctrl-bar">
+    <div class="ctrl-group">
+      <label>Region</label>
+      <select id="r-region"></select>
+    </div>
+    <div class="ctrl-group">
+      <label>Top N</label>
+      <select id="r-top">
+        <option value="20">20</option>
+        <option value="40" selected>40</option>
+        <option value="60">60</option>
+        <option value="100">100</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label>Per term</label>
+      <select id="r-per-term">
+        <option value="10">10</option>
+        <option value="15" selected>15</option>
+        <option value="25">25</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label>Max age</label>
+      <select id="r-hours">
+        <option value="72">3 days</option>
+        <option value="168">1 week</option>
+        <option value="504" selected>3 weeks</option>
+        <option value="1440">2 months</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" id="r-search-btn" onclick="startRegionSearch()">Search ↗</button>
+    <button class="btn btn-ghost"   id="r-stop-btn"   onclick="stopSearch()" style="display:none">⏹ Stop</button>
+  </div>
+  <div class="prog-wrap" id="prog-region"></div>
+  <div class="result-toolbar" id="r-toolbar" style="display:none">
+    <input id="r-filter" type="text" placeholder="Filter results…" oninput="filterResults('r')">
+    <label style="display:flex;align-items:center;gap:5px;font-size:0.8rem;color:var(--muted);cursor:pointer">
+      <input type="checkbox" id="r-hide-applied" checked onchange="filterResults('r')"> Hide applied
+    </label>
+    <span id="r-count" style="color:var(--muted);font-size:0.8rem;margin-left:auto"></span>
+  </div>
+  <div class="table-wrap">
+    <div class="empty-msg" id="r-empty">Run a search to see ranked results here.</div>
+    <table id="r-table" style="display:none">
+      <thead><tr>
+        <th class="col-rank">#</th>
+        <th class="col-score" onclick="sortResults('r','score')">Score ↕</th>
+        <th class="col-title" onclick="sortResults('r','title')">Title ↕</th>
+        <th class="col-co"    onclick="sortResults('r','company')">Company ↕</th>
+        <th class="col-loc">Location</th>
+        <th class="col-src">Source</th>
+        <th class="col-sal">Salary</th>
+        <th class="col-kw">Keywords</th>
+        <th class="col-date" onclick="sortResults('r','date_posted')">Posted ↕</th>
+        <th class="col-acts">Actions</th>
+      </tr></thead>
+      <tbody id="r-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════════════════════ COMPANY SEARCH ════════════════════════════ -->
+<div class="tab-panel" id="tab-company">
+  <div class="ctrl-bar">
+    <div class="ctrl-group" style="flex:1;min-width:190px">
+      <label>Company name</label>
+      <input id="c-company" type="text" placeholder="e.g. Sereact, KUKA, Bosch, Boston Dynamics…"
+             onkeydown="if(event.key==='Enter') startCompanySearch()">
+    </div>
+    <div class="ctrl-group">
+      <label>Region</label>
+      <select id="c-region"></select>
+    </div>
+    <div class="ctrl-group">
+      <label>Top N</label>
+      <select id="c-top">
+        <option value="20">20</option>
+        <option value="40" selected>40</option>
+        <option value="60">60</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" id="c-search-btn" onclick="startCompanySearch()">Search ↗</button>
+    <button class="btn btn-ghost"   id="c-stop-btn"   onclick="stopCompanySearch()" style="display:none">⏹ Stop</button>
+  </div>
+  <div class="prog-wrap" id="prog-company"></div>
+  <div class="result-toolbar" id="c-toolbar" style="display:none">
+    <input id="c-filter" type="text" placeholder="Filter results…" oninput="filterResults('c')">
+    <label style="display:flex;align-items:center;gap:5px;font-size:0.8rem;color:var(--muted);cursor:pointer">
+      <input type="checkbox" id="c-hide-applied" checked onchange="filterResults('c')"> Hide applied
+    </label>
+    <span id="c-count" style="color:var(--muted);font-size:0.8rem;margin-left:auto"></span>
+  </div>
+  <div class="table-wrap">
+    <div class="empty-msg" id="c-empty">Enter a company name and click Search.</div>
+    <table id="c-table" style="display:none">
+      <thead><tr>
+        <th class="col-rank">#</th>
+        <th class="col-score" onclick="sortResults('c','score')">Score ↕</th>
+        <th class="col-title" onclick="sortResults('c','title')">Title ↕</th>
+        <th class="col-co">Company</th>
+        <th class="col-loc">Location</th>
+        <th class="col-src">Source</th>
+        <th class="col-sal">Salary</th>
+        <th class="col-kw">Keywords</th>
+        <th class="col-date" onclick="sortResults('c','date_posted')">Posted ↕</th>
+        <th class="col-acts">Actions</th>
+      </tr></thead>
+      <tbody id="c-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════════════════ ROBOTICS COMPANIES ═══════════════════════════ -->
+<div class="tab-panel" id="tab-robotics">
+  <div class="ctrl-bar">
+    <div class="ctrl-group">
+      <label>Country filter</label>
+      <select id="rc-country" onchange="loadRoboticsCompanies()">
+        <option value="All">🌍 All Countries</option>
+        <option value="Germany" selected>🇩🇪 Germany</option>
+        <option value="Denmark">🇩🇰 Denmark</option>
+        <option value="Norway">🇳🇴 Norway</option>
+        <option value="USA">🇺🇸 USA</option>
+        <option value="Canada">🇨🇦 Canada</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label>Top N</label>
+      <select id="rc-top">
+        <option value="20">20</option>
+        <option value="40" selected>40</option>
+        <option value="60">60</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" id="rc-search-btn" onclick="startRoboticsSearch()">Search All Career Pages ↗</button>
+    <button class="btn btn-ghost"   id="rc-stop-btn"   onclick="stopRoboticsSearch()" style="display:none">⏹ Stop</button>
+  </div>
+  <div id="rc-companies"></div>
+  <div class="prog-wrap" id="prog-robotics"></div>
+  <div class="result-toolbar" id="rc-toolbar" style="display:none">
+    <input id="rc-filter" type="text" placeholder="Filter results…" oninput="filterResults('rc')">
+    <label style="display:flex;align-items:center;gap:5px;font-size:0.8rem;color:var(--muted);cursor:pointer">
+      <input type="checkbox" id="rc-hide-applied" checked onchange="filterResults('rc')"> Hide applied
+    </label>
+    <span id="rc-count" style="color:var(--muted);font-size:0.8rem;margin-left:auto"></span>
+  </div>
+  <div class="table-wrap">
+    <div class="empty-msg" id="rc-empty">Select a country and click "Search All Career Pages".</div>
+    <table id="rc-table" style="display:none">
+      <thead><tr>
+        <th class="col-rank">#</th>
+        <th class="col-score" onclick="sortResults('rc','score')">Score ↕</th>
+        <th class="col-title" onclick="sortResults('rc','title')">Title ↕</th>
+        <th class="col-co"    onclick="sortResults('rc','company')">Company ↕</th>
+        <th class="col-loc">Location</th>
+        <th class="col-src">Source</th>
+        <th class="col-sal">Salary</th>
+        <th class="col-kw">Keywords</th>
+        <th class="col-date" onclick="sortResults('rc','date_posted')">Posted ↕</th>
+        <th class="col-acts">Actions</th>
+      </tr></thead>
+      <tbody id="rc-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════════════════════ APPLICATION LOG ══════════════════════════ -->
+<div class="tab-panel" id="tab-log">
+  <div id="log-pipeline"></div>
+  <div id="log-toolbar">
+    <input id="log-search" type="text" placeholder="Search title or company…" oninput="logRenderTable()">
+    <label style="display:flex;align-items:center;gap:5px;font-size:0.86rem;color:var(--muted);cursor:pointer">
+      <input type="checkbox" id="log-filter-active" onchange="logRenderTable()"> Active only
+    </label>
+    <span id="log-count-label" style="color:var(--muted);font-size:0.8rem;margin-left:auto"></span>
+    <button class="btn btn-primary" onclick="logOpenAdd()">+ Add Application</button>
+  </div>
+  <div id="log-table-wrap">
+    <table id="log-table" style="display:none">
+      <thead><tr>
+        <th class="l-col-id">#</th>
+        <th class="l-col-title" onclick="logToggleSort('title')">Title <span class="sort-arrow" id="log-arr-title">⇅</span></th>
+        <th class="l-col-co"    onclick="logToggleSort('company')">Company <span class="sort-arrow" id="log-arr-company">⇅</span></th>
+        <th class="l-col-loc">Location</th>
+        <th onclick="logToggleSort('status')">Status <span class="sort-arrow" id="log-arr-status">⇅</span></th>
+        <th class="l-col-src">Source</th>
+        <th class="l-col-date" onclick="logToggleSort('date_applied')">Applied <span class="sort-arrow" id="log-arr-date_applied">⇅</span></th>
+        <th class="l-col-notes">Notes</th>
+        <th class="l-col-acts">Actions</th>
+      </tr></thead>
+      <tbody id="log-tbody"></tbody>
+    </table>
+    <div id="log-empty" style="display:none">
+      <div class="big">📭</div>
+      <p style="margin-top:10px">No applications yet.</p>
+      <button class="btn btn-primary" style="margin-top:14px" onclick="logOpenAdd()">Log your first application</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ COVER LETTER MODAL ════════════════════════════ -->
+<div class="modal-bg" id="modal-cl">
+  <div class="modal modal-cl-box">
+    <div class="cl-head">
+      <div>
+        <h2>✉️ Cover Letter</h2>
+        <div class="cl-job-info" id="cl-job-info">—</div>
+      </div>
+      <button class="close" style="position:static;margin-left:16px" onclick="closeModal('modal-cl')">✕</button>
+    </div>
+    <div class="cl-opts">
+      <div class="cl-opt">
+        <label>Mode</label>
+        <select id="cl-mode">
+          <option value="specific" selected>Specific (detailed)</option>
+          <option value="general">General</option>
+        </select>
+      </div>
+      <div class="cl-opt">
+        <label>Availability</label>
+        <input id="cl-avail" type="text" value="1 October 2026" style="width:160px">
+      </div>
+      <div class="cl-opt">
+        <label>Ref / vacancy no.</label>
+        <input id="cl-ref" type="text" placeholder="optional" style="width:130px">
+      </div>
+      <button class="btn btn-primary" id="cl-gen-btn" onclick="generateCL()" style="align-self:flex-end">Generate</button>
+    </div>
+    <div class="cl-body">
+      <div class="cl-label-row">
+        <span>Plain text preview (editable for review — PDF uses the structured LaTeX)</span>
+      </div>
+      <textarea id="cl-text" placeholder="Click Generate to create your cover letter…"></textarea>
+    </div>
+    <div class="cl-foot">
+      <button class="btn btn-green"  id="cl-save-btn" onclick="saveCL()" disabled>💾 Save &amp; PDF</button>
+      <button class="btn btn-ghost"  onclick="copyCL()">📋 Copy Text</button>
+      <button class="btn btn-ghost"  onclick="closeModal('modal-cl')">Close</button>
+      <span id="cl-status"></span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ LOG: ADD MODAL ════════════════════════════════ -->
+<div class="modal-bg" id="modal-add">
+  <div class="modal wide">
+    <button class="close" onclick="closeModal('modal-add')">✕</button>
+    <h2>Log Application</h2>
+    <div class="add-tab-bar">
+      <button class="add-tab-btn active" id="atab-report-btn" onclick="switchAddTab('report')">📋 From Search Results</button>
+      <button class="add-tab-btn"        id="atab-url-btn"    onclick="switchAddTab('url')">🔗 From URL</button>
+    </div>
+    <div class="add-tab-pane active" id="atab-report">
+      <div id="add-file-row">
+        <select id="add-file-sel" onchange="loadAddFile()"><option value="">— loading… —</option></select>
+        <input id="add-search" type="text" placeholder="Filter jobs…" oninput="filterAddTable()">
+        <span id="add-job-count" style="color:var(--muted);font-size:0.78rem"></span>
+      </div>
+      <div id="add-table-wrap">
+        <table id="add-table">
+          <thead><tr>
+            <th style="width:32px">#</th>
+            <th style="width:52px">Score</th>
+            <th>Title</th><th>Company</th><th>Location</th>
+          </tr></thead>
+          <tbody id="add-tbody"></tbody>
+        </table>
+      </div>
+      <div id="add-preview">Click a row to select a job</div>
+    </div>
+    <div class="add-tab-pane" id="atab-url">
+      <label style="font-size:0.8rem;color:var(--muted);display:block;margin-bottom:5px">Paste job posting URL</label>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input id="add-url-input" type="url" placeholder="https://www.linkedin.com/jobs/view/… or any company careers page" style="margin-bottom:0;flex:1">
+        <button class="btn btn-ghost" id="add-url-fetch-btn" onclick="fetchAddUrl()" style="white-space:nowrap;align-self:flex-end">Fetch ↺</button>
+      </div>
+      <div id="add-url-preview">Enter a URL and click Fetch to auto-fill details</div>
+    </div>
+    <div style="display:grid;grid-template-columns:150px 1fr;gap:0 14px;margin-top:12px">
+      <div class="form-row">
+        <label>Status</label>
+        <select id="f-add-status"></select>
+      </div>
+      <div class="form-row">
+        <label>Notes (optional)</label>
+        <input id="f-add-notes" placeholder="Cover letter sent · specific mode · etc." style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;font-size:0.88rem;padding:7px 10px;width:100%">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost"   onclick="closeModal('modal-add')">Cancel</button>
+      <button class="btn btn-primary" onclick="logSaveAdd()">Log Application</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ LOG: EDIT MODAL ═══════════════════════════════ -->
+<div class="modal-bg" id="modal-edit">
+  <div class="modal">
+    <button class="close" onclick="closeModal('modal-edit')">✕</button>
+    <h2>Edit Application</h2>
+    <input type="hidden" id="edit-id">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 14px">
+      <div class="form-row" style="grid-column:1/-1">
+        <label>Job Title *</label>
+        <input id="f-title" placeholder="e.g. Robotics Software Engineer">
+      </div>
+      <div class="form-row"><label>Company *</label><input id="f-company" placeholder="e.g. KUKA AG"></div>
+      <div class="form-row"><label>Location</label><input id="f-location" placeholder="e.g. Munich, Germany"></div>
+      <div class="form-row" style="grid-column:1/-1">
+        <label>Job URL</label>
+        <input id="f-url" type="url" placeholder="https://www.linkedin.com/jobs/view/…">
+      </div>
+      <div class="form-row">
+        <label>Source</label>
+        <select id="f-source">
+          <option value="linkedin">LinkedIn</option>
+          <option value="indeed">Indeed</option>
+          <option value="stepstone">StepStone</option>
+          <option value="xing">Xing</option>
+          <option value="google">Google Jobs</option>
+          <option value="company">Company Site</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="form-row"><label>Status</label><select id="f-status"></select></div>
+      <div class="form-row" style="grid-column:1/-1">
+        <label>Notes</label>
+        <textarea id="f-notes" placeholder="Cover letter sent · Interview details · etc."></textarea>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost"   onclick="closeModal('modal-edit')">Cancel</button>
+      <button class="btn btn-primary" onclick="logSaveEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ LOG: UPDATE STATUS MODAL ══════════════════════ -->
+<div class="modal-bg" id="modal-update">
+  <div class="modal">
+    <button class="close" onclick="closeModal('modal-update')">✕</button>
+    <h2>Update Status</h2>
+    <input type="hidden" id="u-id">
+    <div class="form-row"><label>Status</label><select id="u-status"></select></div>
+    <div class="form-row">
+      <label>Note (optional)</label>
+      <textarea id="u-notes" placeholder="Interview on 15 June, 14:00…" style="min-height:52px"></textarea>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost"   onclick="closeModal('modal-update')">Cancel</button>
+      <button class="btn btn-primary" onclick="logSaveUpdate()">Update</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ LOG: DETAIL PANEL ════════════════════════════ -->
+<div id="log-detail-panel">
+  <button class="close-panel" onclick="logCloseDetail()">✕</button>
+  <h3 id="dp-title"></h3>
+  <div class="dp-co" id="dp-co"></div>
+  <div id="dp-rows"></div>
+  <div class="section-title">History</div>
+  <div id="dp-history"></div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════
+// SHARED STATE & UTILITIES
+// ══════════════════════════════════════════════════════════════════════════
+const DATA   = { r: [], c: [], rc: [] };
+const SORTED = {
+  r:  { col: 'score', asc: false },
+  c:  { col: 'score', asc: false },
+  rc: { col: 'score', asc: false },
+};
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+let toastTimer;
+function showToast(msg, err=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (err ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = '', 3200);
+}
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-bg').forEach(bg =>
+  bg.addEventListener('click', e => { if (e.target === bg) bg.classList.remove('open'); })
+);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-bg.open').forEach(m => m.classList.remove('open'));
+    logCloseDetail();
+  }
+});
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`tab-${tab}-btn`).classList.add('active');
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  if (tab === 'log') logRefresh();
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// JOB SEARCH — table rendering
+// ══════════════════════════════════════════════════════════════════════════
+const Q_CLASS = { 'Excellent':'q-Excellent', 'Very Good':'q-Good', 'Good':'q-Good', 'Fair':'q-Fair', 'Low':'q-Low' };
+const COUNTRY_FLAGS = { Germany:'🇩🇪', USA:'🇺🇸', Denmark:'🇩🇰', Norway:'🇳🇴', Canada:'🇨🇦', Austria:'🇦🇹', Switzerland:'🇨🇭', Japan:'🇯🇵' };
+
+function renderTable(pfx, jobs) {
+  const filtered = applyFilter(pfx, jobs);
+  if (document.getElementById(`${pfx}-count`))
+    document.getElementById(`${pfx}-count`).textContent = `${filtered.length} results`;
+
+  const toolbar = document.getElementById(`${pfx}-toolbar`);
+  if (toolbar) toolbar.style.display = filtered.length ? 'flex' : 'none';
+
+  const tbody = document.getElementById(`${pfx}-tbody`);
+  tbody.innerHTML = '';
+
+  if (!filtered.length) {
+    setEmpty(pfx, jobs.length ? 'No results match filter.' : 'No results.');
+    document.getElementById(`${pfx}-table`).style.display = 'none';
+    return;
+  }
+  document.getElementById(`${pfx}-empty`).style.display = 'none';
+  document.getElementById(`${pfx}-table`).style.display = 'table';
+
+  filtered.forEach(j => {
+    const score   = parseFloat(j.score) || 0;
+    const qCls    = Q_CLASS[j.match_quality] || 'q-Fair';
+    const chips   = (j.matched_keywords || '').split(',').filter(Boolean)
+                     .map(k => `<span class="kw-chip">${esc(k.trim())}</span>`).join('');
+    const srcKey  = (j.source || '').toLowerCase().split(',')[0].trim();
+    const srcBadge = `<span class="src-badge src-${srcKey}">${esc(j.source || '—')}</span>`;
+    const bar      = `<span class="score-bar" style="width:${Math.min(score,110)*0.32}px"></span>`;
+
+    // Score breakdown tooltip
+    let tipHtml = '';
+    const bd = j.score_breakdown || {};
+    if (Object.keys(bd).length) {
+      const rows = [
+        ['Keywords',40],['Title',25],['Seniority',15],
+        ['Recency',10],['Description',10],['Location',5],['Job type',5],
+      ].map(([label,max]) => {
+        const val = bd[label.toLowerCase().replace(' ','_')] ||
+                    bd[label.toLowerCase()] || 0;
+        return `<div class="bd-row"><span class="bd-label">${label}</span>`+
+               `<span class="bd-val">${val.toFixed(1)}/${max}</span></div>`+
+               `<div class="bd-bar" style="width:${Math.min(val/max,1)*100}%"></div>`;
+      });
+      tipHtml = `<div class="breakdown-tip">${rows.join('')}</div>`;
+    }
+
+    const tr = document.createElement('tr');
+    if (j.applied) tr.className = 'row-applied';
+    tr.innerHTML = `
+      <td class="col-rank">${j.rank}</td>
+      <td class="col-score score-cell"><span class="${qCls}">${score.toFixed(1)}</span>${bar}${tipHtml}</td>
+      <td class="col-title">${esc(j.title)}</td>
+      <td class="col-co">${esc(j.company || '—')}</td>
+      <td class="col-loc">${esc(j.location || '—')}</td>
+      <td class="col-src">${srcBadge}</td>
+      <td class="col-sal">${esc(j.salary || '—')}</td>
+      <td class="col-kw">${chips}</td>
+      <td class="col-date">${esc((j.date_posted||'').slice(0,10)||'—')}</td>
+      <td class="col-acts"></td>`;
+
+    // Build action buttons (using closures to capture j)
+    const actCell = tr.querySelector('.col-acts');
+    if (!j.applied) {
+      const clBtn = document.createElement('button');
+      clBtn.className = 'act-small act-cl'; clBtn.title = 'Generate Cover Letter';
+      clBtn.textContent = '📄'; clBtn.addEventListener('click', () => openCL(j));
+      actCell.appendChild(clBtn);
+
+      const svBtn = document.createElement('button');
+      svBtn.className = 'act-small act-sv'; svBtn.title = 'Save job (bookmark)';
+      svBtn.textContent = '💾'; svBtn.addEventListener('click', () => quickLogJob(j, 'saved', svBtn));
+      actCell.appendChild(svBtn);
+
+      const logBtn = document.createElement('button');
+      logBtn.className = 'act-small act-log'; logBtn.title = 'Log as Applied';
+      logBtn.textContent = '📝'; logBtn.addEventListener('click', () => quickLogJob(j, 'applied', logBtn));
+      actCell.appendChild(logBtn);
+    }
+    if (j.url) {
+      const a = document.createElement('a');
+      a.className = 'apply-btn'; a.href = j.url; a.target = '_blank'; a.textContent = 'Apply ↗';
+      actCell.appendChild(a);
+    } else if (j.applied) {
+      const badge = document.createElement('span');
+      badge.className = 'applied-badge'; badge.textContent = '✓ Applied';
+      actCell.appendChild(badge);
+    }
+
+    tbody.appendChild(tr);
+  });
+}
+
+function applyFilter(pfx, jobs) {
+  const filterEl    = document.getElementById(`${pfx}-filter`);
+  const q           = filterEl ? filterEl.value.toLowerCase() : '';
+  const hideApplied = document.getElementById(`${pfx}-hide-applied`)?.checked ?? true;
+  let rows = jobs.filter(j => {
+    if (hideApplied && j.applied) return false;
+    if (q && !`${j.title} ${j.company} ${j.location} ${j.matched_keywords} ${j.salary}`.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const s = SORTED[pfx];
+  rows = [...rows].sort((a, b) => {
+    let va = a[s.col] ?? '', vb = b[s.col] ?? '';
+    if (s.col === 'score') { va = +va; vb = +vb; }
+    if (va < vb) return s.asc ? -1 : 1;
+    if (va > vb) return s.asc ? 1 : -1;
+    return 0;
+  });
+  return rows;
+}
+function filterResults(pfx) { renderTable(pfx, DATA[pfx]); }
+function sortResults(pfx, col) {
+  if (SORTED[pfx].col === col) SORTED[pfx].asc = !SORTED[pfx].asc;
+  else { SORTED[pfx].col = col; SORTED[pfx].asc = false; }
+  renderTable(pfx, DATA[pfx]);
+}
+function setEmpty(pfx, html) {
+  const el = document.getElementById(`${pfx}-empty`);
+  if (el) { el.innerHTML = html; el.style.display = 'block'; }
+}
+
+// ── Streaming SSE helper ───────────────────────────────────────────────────
+function sseStream(url, body, progEl, onDone, onFinish) {
+  progEl.style.display = 'block'; progEl.innerHTML = '';
+  fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) })
+    .then(res => {
+      if (!res.ok) { showToast('Search request failed.', true); onFinish(); return; }
+      const reader = res.body.getReader(), dec = new TextDecoder();
+      let buf = '';
+      function pump() {
+        reader.read().then(({ done, value }) => {
+          if (done) { onFinish(); return; }
+          buf += dec.decode(value, { stream: true });
+          const parts = buf.split('\n\n'); buf = parts.pop();
+          parts.forEach(part => {
+            if (!part.startsWith('data:')) return;
+            try {
+              const obj = JSON.parse(part.slice(5).trim());
+              if (obj.type === 'status' || obj.type === 'progress') {
+                const d = document.createElement('div');
+                d.className = 'prog-line'; d.textContent = obj.text;
+                progEl.appendChild(d); progEl.scrollTop = progEl.scrollHeight;
+              } else if (obj.type === 'done') {
+                onDone(obj);
+                const d = document.createElement('div');
+                d.className = 'prog-line done'; d.textContent = buildStatsLine(obj);
+                progEl.appendChild(d);
+                onFinish();
+              } else if (obj.type === 'error') {
+                const d = document.createElement('div');
+                d.className = 'prog-line err'; d.textContent = '✕ ' + obj.text;
+                progEl.appendChild(d); showToast(obj.text, true); onFinish();
+              }
+            } catch(e) {}
+          });
+          pump();
+        });
+      }
+      pump();
+    })
+    .catch(e => { showToast('Network error: ' + e.message, true); onFinish(); });
+}
+
+function buildStatsLine(obj) {
+  const excl = obj.applied_excluded ? ` → ${obj.applied_excluded} applied excluded` : '';
+  if (obj.unique != null && obj.relevant != null)
+    return `✓ Done — ${obj.total} scraped → ${obj.unique} unique${excl} → ${obj.relevant} relevant → ${(obj.jobs||[]).length} ranked`;
+  return `✓ Done — ${(obj.jobs||[]).length} jobs ranked`;
+}
+
+// ── Region search ──────────────────────────────────────────────────────────
+function startRegionSearch() {
+  document.getElementById('r-search-btn').disabled = true;
+  document.getElementById('r-stop-btn').style.display = 'inline-block';
+  setEmpty('r', '<span class="spinner"></span> Searching…');
+  sseStream('/api/search', {
+    region:   document.getElementById('r-region').value,
+    top_n:    +document.getElementById('r-top').value,
+    per_term: +document.getElementById('r-per-term').value,
+    hours_old:+document.getElementById('r-hours').value,
+  }, document.getElementById('prog-region'),
+  obj => { DATA.r = obj.jobs || []; renderTable('r', DATA.r); showToast(`Found ${DATA.r.length} jobs!`); },
+  () => { document.getElementById('r-search-btn').disabled = false; document.getElementById('r-stop-btn').style.display = 'none'; }
+  );
+}
+function stopSearch() { document.getElementById('r-search-btn').disabled = false; document.getElementById('r-stop-btn').style.display = 'none'; showToast('Stopped.'); }
+
+// ── Company search ─────────────────────────────────────────────────────────
+function startCompanySearch() {
+  const company = document.getElementById('c-company').value.trim();
+  if (!company) { showToast('Enter a company name.', true); return; }
+  document.getElementById('c-search-btn').disabled = true;
+  document.getElementById('c-stop-btn').style.display = 'inline-block';
+  setEmpty('c', `<span class="spinner"></span> Searching ${esc(company)}…`);
+  sseStream('/api/search-company', {
+    company, region: document.getElementById('c-region').value,
+    top_n: +document.getElementById('c-top').value,
+  }, document.getElementById('prog-company'),
+  obj => { DATA.c = obj.jobs || []; renderTable('c', DATA.c); showToast(DATA.c.length ? `${DATA.c.length} roles at ${company}!` : `No roles found.`, !DATA.c.length); },
+  () => { document.getElementById('c-search-btn').disabled = false; document.getElementById('c-stop-btn').style.display = 'none'; }
+  );
+}
+function stopCompanySearch() { document.getElementById('c-search-btn').disabled = false; document.getElementById('c-stop-btn').style.display = 'none'; showToast('Stopped.'); }
+
+// ── Robotics companies ─────────────────────────────────────────────────────
+async function loadRoboticsCompanies() {
+  const country = document.getElementById('rc-country').value;
+  const res = await fetch(`/api/robotics-companies?country=${encodeURIComponent(country)}`);
+  const companies = await res.json();
+  document.getElementById('rc-companies').innerHTML = companies.map(c => {
+    const flag = COUNTRY_FLAGS[c.country] || '🌍';
+    const ats  = c.ats || 'jobspy';
+    return `<span class="co-card"><span>${flag}</span>`+
+           `<a href="${esc(c.website)}" target="_blank">${esc(c.name)}</a>`+
+           `<span style="color:var(--muted);font-size:0.72rem">${esc(c.city)}</span>`+
+           `<span class="co-ats co-ats-${ats}">${ats}</span></span>`;
+  }).join('');
+}
+
+function startRoboticsSearch() {
+  document.getElementById('rc-search-btn').disabled = true;
+  document.getElementById('rc-stop-btn').style.display = 'inline-block';
+  setEmpty('rc', '<span class="spinner"></span> Scanning robotics company career pages…');
+  sseStream('/api/search-robotics-companies', {
+    country: document.getElementById('rc-country').value,
+    top_n:   +document.getElementById('rc-top').value,
+  }, document.getElementById('prog-robotics'),
+  obj => { DATA.rc = obj.jobs || []; renderTable('rc', DATA.rc); showToast(`Found ${DATA.rc.length} robotics jobs!`); },
+  () => { document.getElementById('rc-search-btn').disabled = false; document.getElementById('rc-stop-btn').style.display = 'none'; }
+  );
+}
+function stopRoboticsSearch() { document.getElementById('rc-search-btn').disabled = false; document.getElementById('rc-stop-btn').style.display = 'none'; showToast('Stopped.'); }
+
+// ══════════════════════════════════════════════════════════════════════════
+// COVER LETTER
+// ══════════════════════════════════════════════════════════════════════════
+let CL_JOB = null;
+let CL_TEX = '';
+
+function openCL(job) {
+  CL_JOB = job; CL_TEX = '';
+  document.getElementById('cl-job-info').textContent = `${job.title} @ ${job.company}`;
+  document.getElementById('cl-text').value = '';
+  document.getElementById('cl-status').textContent = '';
+  document.getElementById('cl-status').style.color = 'var(--muted)';
+  document.getElementById('cl-save-btn').disabled = true;
+  openModal('modal-cl');
+}
+
+async function generateCL() {
+  if (!CL_JOB) return;
+  const btn = document.getElementById('cl-gen-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+  document.getElementById('cl-status').textContent = 'Generating…';
+  document.getElementById('cl-status').style.color = 'var(--muted)';
+  document.getElementById('cl-save-btn').disabled = true;
+
+  try {
+    const res  = await fetch('/api/generate', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        title:            CL_JOB.title,
+        company:          CL_JOB.company,
+        location:         CL_JOB.location,
+        matched_keywords: CL_JOB.matched_keywords,
+        url:              CL_JOB.url,
+        mode:             document.getElementById('cl-mode').value,
+        availability:     document.getElementById('cl-avail').value.trim(),
+        ref:              document.getElementById('cl-ref').value.trim(),
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      document.getElementById('cl-status').textContent = '✕ ' + (data.error || 'Generation failed');
+      document.getElementById('cl-status').style.color = 'var(--red)';
+    } else {
+      CL_TEX = data.tex;
+      document.getElementById('cl-text').value = data.text;
+      document.getElementById('cl-save-btn').disabled = false;
+      document.getElementById('cl-status').textContent = '✓ Generated';
+      document.getElementById('cl-status').style.color = 'var(--green)';
+    }
+  } catch(e) {
+    document.getElementById('cl-status').textContent = '✕ ' + e.message;
+    document.getElementById('cl-status').style.color = 'var(--red)';
+  }
+  btn.disabled = false; btn.textContent = 'Generate';
+}
+
+async function saveCL() {
+  if (!CL_TEX) { showToast('Generate a letter first.', true); return; }
+  const btn = document.getElementById('cl-save-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Saving…';
+  document.getElementById('cl-status').textContent = 'Saving & compiling PDF…';
+  document.getElementById('cl-status').style.color = 'var(--muted)';
+
+  try {
+    const res  = await fetch('/api/save-letter', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ tex: CL_TEX }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      showToast(data.error || 'Save failed', true);
+      document.getElementById('cl-status').textContent = '✕ ' + (data.error || 'Save failed');
+      document.getElementById('cl-status').style.color = 'var(--red)';
+    } else if (data.compiled) {
+      showToast(`✓ Saved ${data.saved_tex} + compiled ${data.saved_pdf}`);
+      document.getElementById('cl-status').textContent = `✓ Saved ${data.saved_tex} · PDF compiled`;
+      document.getElementById('cl-status').style.color = 'var(--green)';
+    } else {
+      showToast(`✓ Saved ${data.saved_tex} (pdflatex not found — no PDF)`);
+      document.getElementById('cl-status').textContent = `✓ Saved ${data.saved_tex} (no PDF — install texlive)`;
+      document.getElementById('cl-status').style.color = 'var(--yellow)';
+    }
+  } catch(e) {
+    showToast('Network error: ' + e.message, true);
+    document.getElementById('cl-status').textContent = '✕ ' + e.message;
+    document.getElementById('cl-status').style.color = 'var(--red)';
+  }
+  btn.disabled = false; btn.textContent = '💾 Save & PDF';
+}
+
+function copyCL() {
+  const text = document.getElementById('cl-text').value;
+  if (!text) { showToast('Nothing to copy.', true); return; }
+  navigator.clipboard.writeText(text).then(() => showToast('Copied to clipboard!'));
+}
+
+// ── Quick log a job directly from search results ──────────────────────────
+async function quickLogJob(j, status, btn) {
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/applications', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        title:    j.title,    company:  j.company,
+        url:      j.url || '', location: j.location || '',
+        source:   j.source || '', notes: '', status,
+      }),
+    });
+    if (res.ok) {
+      showToast(status === 'saved' ? `💾 Saved: ${j.title}` : `📝 Logged applied: ${j.title}`);
+      btn.textContent = status === 'saved' ? '✓💾' : '✓📝';
+      btn.style.borderColor = 'var(--green)'; btn.style.color = 'var(--green)';
+    } else {
+      showToast('Failed to log job', true); btn.disabled = false;
+    }
+  } catch(e) { showToast('Network error: ' + e.message, true); btn.disabled = false; }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// APPLICATION LOG
+// ══════════════════════════════════════════════════════════════════════════
+let LOG_ALL      = [];
+let LOG_STATUSES = [];
+let LOG_ACTIVE   = null;
+let LOG_SORT_COL = 'status';
+let LOG_SORT_DIR = 1;
+
+const STATUS_PRI = { offer:0, interview:1, assessment:2, awaiting:3, applied:4, saved:5, withdrawn:6, rejected:7 };
+const STATUS_CLS = { saved:'s-saved', applied:'s-applied', awaiting:'s-awaiting', interview:'s-interview', assessment:'s-assessment', offer:'s-offer', rejected:'s-rejected', withdrawn:'s-withdrawn' };
+const ACTIVE_SET = new Set(['saved','applied','awaiting','interview','assessment']);
+
+async function logInit() {
+  const [sRes, aRes, cfgRes] = await Promise.all([
+    fetch('/api/statuses'), fetch('/api/applications'), fetch('/api/config'),
+  ]);
+  LOG_STATUSES = await sRes.json();
+  LOG_ALL      = await aRes.json();
+  const cfg    = await cfgRes.json();
+  if (cfg.name) document.getElementById('header-subtitle').textContent = `${cfg.name} · Job Search · Cover Letter · Application Log`;
+  logPopulateStatusSelects();
+  logRenderPipeline();
+  logRenderTable();
+}
+
+function logPopulateStatusSelects() {
+  ['f-add-status','f-status','u-status'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    sel.innerHTML = LOG_STATUSES.map(s => `<option value="${s.value}">${s.emoji} ${s.value}</option>`).join('');
+  });
+}
+
+async function logRefresh() {
+  LOG_ALL = await (await fetch('/api/applications')).json();
+  logRenderPipeline();
+  logRenderTable();
+}
+
+async function logRenderPipeline() {
+  const counts = await (await fetch('/api/summary')).json();
+  const bar = document.getElementById('log-pipeline');
+  bar.innerHTML = '';
+  const allChip = document.createElement('div');
+  allChip.className = 'pipe-chip' + (LOG_ACTIVE === null ? ' active' : '');
+  allChip.innerHTML = `All <span class="count">${LOG_ALL.length}</span>`;
+  allChip.onclick = () => { LOG_ACTIVE = null; logRenderPipeline(); logRenderTable(); };
+  bar.appendChild(allChip);
+  LOG_STATUSES.forEach(s => {
+    const n = counts[s.value] || 0; if (n === 0) return;
+    const chip = document.createElement('div');
+    chip.className = 'pipe-chip' + (LOG_ACTIVE === s.value ? ' active' : '');
+    chip.innerHTML = `${s.emoji} ${s.value} <span class="count">${n}</span>`;
+    chip.onclick = () => { LOG_ACTIVE = s.value; logRenderPipeline(); logRenderTable(); };
+    bar.appendChild(chip);
+  });
+}
+
+function logRenderTable() {
+  const q       = document.getElementById('log-search').value.toLowerCase();
+  const onlyAct = document.getElementById('log-filter-active').checked;
+  let rows = LOG_ALL.filter(e => {
+    if (LOG_ACTIVE && e.status !== LOG_ACTIVE) return false;
+    if (onlyAct && !ACTIVE_SET.has(e.status)) return false;
+    if (q && !`${e.title} ${e.company}`.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  rows.sort((a, b) => {
+    if (LOG_SORT_COL === 'status') {
+      const pa = STATUS_PRI[a.status] ?? 8, pb = STATUS_PRI[b.status] ?? 8;
+      if (pa !== pb) return LOG_SORT_DIR * (pa - pb);
+      return (b.last_updated||b.date_applied||'').localeCompare(a.last_updated||a.date_applied||'');
+    }
+    if (LOG_SORT_COL === 'date_applied')
+      return LOG_SORT_DIR * (b.date_applied||'').localeCompare(a.date_applied||'');
+    return LOG_SORT_DIR * String(a[LOG_SORT_COL]||'').toLowerCase().localeCompare(String(b[LOG_SORT_COL]||'').toLowerCase());
+  });
+  ['title','company','status','date_applied'].forEach(col => {
+    const el = document.getElementById(`log-arr-${col}`); if (!el) return;
+    const th = el.closest('th');
+    if (col === LOG_SORT_COL) { el.textContent = LOG_SORT_DIR===1?'▲':'▼'; if (th) th.classList.add('sorted'); }
+    else { el.textContent = '⇅'; if (th) th.classList.remove('sorted'); }
+  });
+  document.getElementById('log-count-label').textContent = `${rows.length} application${rows.length!==1?'s':''}`;
+
+  const tbody  = document.getElementById('log-tbody');
+  const table  = document.getElementById('log-table');
+  const emptyEl= document.getElementById('log-empty');
+  tbody.innerHTML = '';
+  if (!rows.length) { emptyEl.style.display='block'; table.style.display='none'; return; }
+  emptyEl.style.display='none'; table.style.display='table';
+
+  rows.forEach(e => {
+    const cls  = STATUS_CLS[e.status] || '';
+    const link = e.url ? `<br><a class="job-link" href="${e.url}" target="_blank">↗ Open posting</a>` : '';
+    const tr   = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="l-col-id">${e.id}</td>
+      <td class="l-col-title">${esc(e.title)}${link}</td>
+      <td class="l-col-co">${esc(e.company)}</td>
+      <td class="l-col-loc">${esc(e.location||'—')}</td>
+      <td><span class="badge ${cls}">${esc(e.status)}</span></td>
+      <td class="l-col-src">${esc(e.source||'—')}</td>
+      <td class="l-col-date">${esc(e.date_applied||'—')}</td>
+      <td class="l-col-notes">${esc((e.notes||'').slice(0,60))}${(e.notes||'').length>60?'…':''}</td>
+      <td class="l-col-acts">
+        <button class="row-act-btn" onclick="logOpenUpdate(${e.id})">Status</button>
+        <button class="row-act-btn" onclick="logOpenEdit(${e.id})">Edit</button>
+        <button class="row-act-btn" onclick="logOpenDetail(${e.id})">▶</button>
+        <button class="row-act-btn row-act-del" onclick="logDeleteEntry(${e.id})" title="Delete">✕</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function logToggleSort(col) {
+  if (LOG_SORT_COL === col) LOG_SORT_DIR = -LOG_SORT_DIR;
+  else { LOG_SORT_COL = col; LOG_SORT_DIR = col === 'date_applied' ? -1 : 1; }
+  logRenderTable();
+}
+
+// ── Log: Add modal ─────────────────────────────────────────────────────────
+let LOG_ADD_JOBS = [];
+let LOG_ADD_SEL  = null;
+let LOG_ADD_URL  = null;
+let LOG_ADD_TAB  = 'report';
+
+async function logOpenAdd() {
+  LOG_ADD_SEL = null; LOG_ADD_URL = null; LOG_ADD_TAB = 'report';
+  document.querySelectorAll('.add-tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.add-tab-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('atab-report-btn').classList.add('active');
+  document.getElementById('atab-report').classList.add('active');
+  document.getElementById('add-preview').innerHTML = 'Click a row to select a job';
+  document.getElementById('add-url-input').value = '';
+  document.getElementById('add-url-preview').innerHTML = 'Enter a URL and click Fetch to auto-fill details';
+  document.getElementById('f-add-status').value = 'applied';
+  document.getElementById('f-add-notes').value  = '';
+  document.getElementById('add-search').value   = '';
+  openModal('modal-add');
+  await logInitAddModal();
+}
+
+async function logInitAddModal() {
+  const res   = await fetch('/api/job-files');
+  const files = await res.json();
+  const sel   = document.getElementById('add-file-sel');
+  if (!files.length) { sel.innerHTML = '<option value="">— no saved reports —</option>'; return; }
+  sel.innerHTML = '<option value="">— select file —</option>' + files.map(f => `<option value="${esc(f)}">${esc(f)}</option>`).join('');
+  sel.value = files[0];
+  await loadAddFile();
+}
+
+async function loadAddFile() {
+  const file = document.getElementById('add-file-sel').value;
+  if (!file) { LOG_ADD_JOBS = []; logRenderAddTable([]); return; }
+  const res = await fetch(`/api/jobs?file=${encodeURIComponent(file)}`);
+  LOG_ADD_JOBS = await res.json();
+  document.getElementById('add-job-count').textContent = `${LOG_ADD_JOBS.length} jobs`;
+  LOG_ADD_SEL = null;
+  document.getElementById('add-preview').innerHTML = 'Click a row to select a job';
+  logRenderAddTable(LOG_ADD_JOBS);
+}
+
+function filterAddTable() {
+  const q = document.getElementById('add-search').value.toLowerCase();
+  logRenderAddTable(LOG_ADD_JOBS.filter(j => `${j.title} ${j.company} ${j.location}`.toLowerCase().includes(q)));
+}
+
+function logRenderAddTable(jobs) {
+  const tbody = document.getElementById('add-tbody'); tbody.innerHTML = '';
+  jobs.forEach(j => {
+    const tr = document.createElement('tr'); tr.className = 'pick-row';
+    if (LOG_ADD_SEL && LOG_ADD_SEL.rank == j.rank) tr.classList.add('sel');
+    tr.innerHTML = `<td>${j.rank}</td><td class="pick-score">${parseFloat(j.score).toFixed(1)}</td><td>${esc(j.title)}</td><td>${esc(j.company)}</td><td style="color:var(--muted);font-size:0.77rem">${esc(j.location||'—')}</td>`;
+    tr.onclick = () => {
+      LOG_ADD_SEL = j;
+      document.querySelectorAll('#add-tbody .pick-row').forEach(r => r.classList.remove('sel'));
+      tr.classList.add('sel');
+      document.getElementById('add-preview').innerHTML =
+        `<span class="pv-title">#${j.rank} &nbsp; ${esc(j.title)}</span> &nbsp;@&nbsp; ${esc(j.company)}${j.location ? ' · '+esc(j.location) : ''}`;
+    };
+    tbody.appendChild(tr);
+  });
+}
+
+function switchAddTab(tab) {
+  LOG_ADD_TAB = tab;
+  document.querySelectorAll('.add-tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.add-tab-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById(`atab-${tab}-btn`).classList.add('active');
+  document.getElementById(`atab-${tab}`).classList.add('active');
+}
+
+async function fetchAddUrl() {
+  const url = document.getElementById('add-url-input').value.trim();
+  if (!url) { showToast('Paste a URL first.', true); return; }
+  const btn  = document.getElementById('add-url-fetch-btn');
+  const prev = document.getElementById('add-url-preview');
+  btn.disabled = true; btn.textContent = 'Fetching…';
+  prev.innerHTML = '<span style="color:var(--muted)">Fetching…</span>';
+  try {
+    const res  = await fetch(`/api/fetch-job?url=${encodeURIComponent(url)}`);
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      prev.innerHTML = `<span style="color:var(--yellow)">⚠ ${esc(data.error||'Could not fetch — fill manually.')}</span>`;
+      LOG_ADD_URL = { url, title:'', company:'', location:'', source:'' };
+    } else {
+      LOG_ADD_URL = { ...data, url };
+      prev.innerHTML = `<span class="pv-title">${esc(data.title||'')}</span>${data.location?' · '+esc(data.location):''}<br><span style="color:var(--muted);font-size:0.78rem">${esc(data.company||'')}${data.source?' · '+esc(data.source):''}</span>`;
+      showToast('Job info fetched!');
+    }
+  } catch(e) {
+    prev.innerHTML = `<span style="color:var(--red)">Error: ${esc(e.message)}</span>`;
+    LOG_ADD_URL = { url, title:'', company:'', location:'', source:'' };
+  }
+  btn.disabled = false; btn.textContent = 'Fetch ↺';
+}
+
+async function logSaveAdd() {
+  let body;
+  if (LOG_ADD_TAB === 'url') {
+    const rawUrl = document.getElementById('add-url-input').value.trim();
+    if (!rawUrl && !LOG_ADD_URL) { showToast('Paste a URL first.', true); return; }
+    const j = LOG_ADD_URL || {};
+    body = { title:j.title||'', company:j.company||'', location:j.location||'', url:j.url||rawUrl, source:j.source||'', notes:document.getElementById('f-add-notes').value.trim(), status:document.getElementById('f-add-status').value };
+  } else {
+    if (!LOG_ADD_SEL) { showToast('Select a job from the list.', true); return; }
+    body = { title:LOG_ADD_SEL.title, company:LOG_ADD_SEL.company, location:LOG_ADD_SEL.location||'', url:LOG_ADD_SEL.url||'', source:LOG_ADD_SEL.source||'', notes:document.getElementById('f-add-notes').value.trim(), status:document.getElementById('f-add-status').value };
+  }
+  await fetch('/api/applications', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+  showToast('Application logged!');
+  closeModal('modal-add');
+  await logRefresh();
+}
+
+// ── Log: Edit modal ────────────────────────────────────────────────────────
+async function logOpenEdit(id) {
+  const e = LOG_ALL.find(x => x.id === id); if (!e) return;
+  document.getElementById('edit-id').value    = id;
+  document.getElementById('f-title').value    = e.title;
+  document.getElementById('f-company').value  = e.company;
+  document.getElementById('f-location').value = e.location||'';
+  document.getElementById('f-url').value      = e.url||'';
+  document.getElementById('f-notes').value    = e.notes||'';
+  document.getElementById('f-status').value   = e.status;
+  document.getElementById('f-source').value   = e.source||'linkedin';
+  openModal('modal-edit');
+}
+async function logSaveEdit() {
+  const id = document.getElementById('edit-id').value;
+  const body = {
+    title:    document.getElementById('f-title').value.trim(),
+    company:  document.getElementById('f-company').value.trim(),
+    location: document.getElementById('f-location').value.trim(),
+    url:      document.getElementById('f-url').value.trim(),
+    notes:    document.getElementById('f-notes').value.trim(),
+    status:   document.getElementById('f-status').value,
+    source:   document.getElementById('f-source').value,
+  };
+  if (!body.title || !body.company) { showToast('Title and company are required.', true); return; }
+  await fetch(`/api/applications/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+  showToast('Saved.'); closeModal('modal-edit'); await logRefresh();
+}
+
+// ── Log: Update status modal ───────────────────────────────────────────────
+function logOpenUpdate(id) {
+  const e = LOG_ALL.find(x => x.id === id); if (!e) return;
+  document.getElementById('u-id').value     = id;
+  document.getElementById('u-status').value = e.status;
+  document.getElementById('u-notes').value  = '';
+  openModal('modal-update');
+}
+async function logSaveUpdate() {
+  const id = document.getElementById('u-id').value;
+  await fetch(`/api/applications/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ status:document.getElementById('u-status').value, notes:document.getElementById('u-notes').value.trim() }) });
+  closeModal('modal-update'); showToast('Status updated.'); await logRefresh();
+}
+
+// ── Log: Delete ────────────────────────────────────────────────────────────
+async function logDeleteEntry(id) {
+  const e = LOG_ALL.find(x => x.id === id);
+  if (!confirm(`Delete "${e.title}" @ ${e.company}?`)) return;
+  await fetch(`/api/applications/${id}`, { method:'DELETE' });
+  showToast('Deleted.'); await logRefresh();
+}
+
+// ── Log: Detail panel ──────────────────────────────────────────────────────
+async function logOpenDetail(id) {
+  const e = await (await fetch(`/api/applications/${id}`)).json();
+  document.getElementById('dp-title').textContent = e.title;
+  document.getElementById('dp-co').textContent    = e.company + (e.location ? ` · ${e.location}` : '');
+  const cls = STATUS_CLS[e.status] || '';
+  document.getElementById('dp-rows').innerHTML = [
+    ['Status',       `<span class="badge ${cls}">${e.status}</span>`],
+    ['Applied',      e.date_applied||'—'],
+    ['Last updated', (e.last_updated||'—').slice(0,16)],
+    ['Source',       e.source||'—'],
+    ['URL',          e.url ? `<a class="job-link" href="${e.url}" target="_blank">↗ Open</a>` : '—'],
+    ['Notes',        esc(e.notes||'—')],
+  ].map(([k,v]) => `<div class="dp-row"><span>${k}</span><span>${v}</span></div>`).join('');
+  const hist = (e.history||[]).slice().reverse();
+  document.getElementById('dp-history').innerHTML = hist.length
+    ? hist.map(h => `<div class="history-item"><span class="badge ${STATUS_CLS[h.status]||''}">${h.status}</span>${h.note&&h.note!=='Added'?` <span style="color:var(--text);margin-left:5px">${esc(h.note)}</span>`:''}<div class="h-date">${h.date}</div></div>`).join('')
+    : '<div style="color:var(--muted);font-size:0.8rem">(no history)</div>';
+  document.getElementById('log-detail-panel').classList.add('open');
+}
+function logCloseDetail() {
+  document.getElementById('log-detail-panel').classList.remove('open');
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════════════════
+async function init() {
+  // Populate region dropdowns
+  const regions = await (await fetch('/api/regions')).json();
+  ['r-region','c-region'].forEach(id => {
+    document.getElementById(id).innerHTML =
+      regions.map(r => `<option value="${esc(r.name)}">${r.flag} ${esc(r.name)}</option>`).join('');
+  });
+  // Robotics company cards
+  loadRoboticsCompanies();
+  // Log tab
+  await logInit();
+}
+
+init();
+</script>
+</body>
+</html>

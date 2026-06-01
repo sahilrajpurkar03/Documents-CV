@@ -6,6 +6,9 @@ Generates a tailored, ATS-friendly cover letter by matching your CV against a jo
 
 ## Quick Start
 
+> **Recommended:** Use the unified dashboard — `wsl bash run.sh` at the project root opens http://localhost:5000. Click the 📄 button on any job row to generate a cover letter, then click **Save & PDF** to write `cl_sahil.tex` and compile `cl_sahil.pdf` in one step.
+
+### Standalone web UI (if you need just this tool)
 ```powershell
 # Web UI — two tabs: pick from job report CSV, or paste any job URL
 wsl bash cover_letter/run.sh web

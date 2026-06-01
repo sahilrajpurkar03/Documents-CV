@@ -1,6 +1,6 @@
 # Job Application Toolkit
 
-A self-hosted, privacy-first toolkit for job seekers — built around your **own CV in LaTeX**. Three tools work together: find matching jobs, generate tailored cover letters, and track your applications.
+A self-hosted, privacy-first toolkit for job seekers — built around your **own CV in LaTeX**. One dashboard to find matching jobs, generate tailored cover letters, and track your applications.
 
 ---
 
@@ -15,49 +15,57 @@ cp cover_letter/cv_data.example.py cover_letter/cv_data.py
 # then edit cv_data.py with your personal info, experience prose, and projects
 ```
 
-### 3. Run the Tools
+### 3. Launch the Dashboard
 
-| Tool | Web UI | CLI |
-|---|---|---|
-| **Job Search** | `wsl bash job_search/run_job_search.sh web` → http://localhost:5052 | `wsl bash job_search/run_job_search.sh` |
-| **Cover Letter** | `wsl bash cover_letter/run.sh web` → http://localhost:5051 | `wsl bash cover_letter/run.sh` |
-| **Application Log** | `wsl bash log/run.sh web` → http://localhost:5050 | `wsl bash log/run.sh list` |
+```bash
+wsl bash run.sh
+```
 
-> **Note:** The `wsl` prefix is needed on Windows with WSL. On Linux/macOS, use `bash ...` directly.
+Opens **http://localhost:5000** — one page with everything:
+
+| Tab | What it does |
+|---|---|
+| 🌍 **Region Search** | Scrape LinkedIn, Indeed, StepStone, Xing, Google Jobs for your area |
+| 🏢 **Company Search** | Find all open roles at a specific company |
+| 🤖 **Robotics Cos** | Scan 30+ robotics company career pages directly |
+| 📋 **Log** | Track every application through the hiring pipeline |
+
+Per job row, you get four quick-action buttons:
+- **📄** Generate a tailored cover letter (preview text, save to `cl_sahil.tex` + compile PDF in one click)
+- **💾** Save the job as a bookmark in your log
+- **📝** Log it as "applied"
+- **Apply ↗** Opens the job posting
+
+> **Note:** The `wsl` prefix is needed on Windows with WSL. On Linux/macOS, use `bash run.sh` directly.
 
 ---
 
 ## Tools
 
-### 🔍 Job Search (`job_search/`)
+### 🔍 Job Search
 
-Scrapes LinkedIn, Indeed, Glassdoor, and Google Jobs. Scores each job 0–110 pts against your CV profile parsed from `main.tex`.
+Scrapes LinkedIn, Indeed, StepStone, Xing, and Google Jobs. Scores each job 0–110 pts against your CV profile parsed from `main.tex`.
 
 **Features:**
 - Parallel scraping (4 workers) with cross-batch deduplication
 - Relevance pre-filter (removes non-tech roles automatically)
 - Negative keyword filter (removes sales, HR, finance, etc.)
-- Score breakdown: keywords · title · seniority · recency · description · location · job type
-- Company-specific search (e.g. search all open roles at a specific company)
-- Exports to CSV
+- Score breakdown tooltip: keywords · title · seniority · recency · description · location · job type
+- Company-specific search and robotics company career-page scan
 
-**Web UI tabs:**
-- **Region Search** — search by role + location, see ranked results with score tooltip
-- **Company Search** — search all open roles at a specific company
-- **Browse Reports** — view previously saved CSV reports
-
-### ✉️ Cover Letter Generator (`cover_letter/`)
+### ✉️ Cover Letter Generator
 
 Generates tailored cover letters in plain text and LaTeX (compiles to PDF).
 
 **Features:**
 - Two modes: *general* (broader fit) and *specific* (targeted, with metrics)
 - Matches job keywords to your CV experiences automatically
-- Two input methods: pick from a job search report, or paste a job URL
+- Click 📄 on any job row → adjust options → Generate → Save & PDF
+- Writes `cl_sahil.tex` and compiles `cl_sahil.pdf` automatically
 
 **Setup:** Copy `cv_data.example.py` to `cv_data.py` and fill in your info.
 
-### 🗂 Application Log (`log/`)
+### 🗂 Application Log
 
 Track your job applications through the hiring pipeline.
 
@@ -66,7 +74,6 @@ Track your job applications through the hiring pipeline.
 - Sortable columns (click column headers): Status (default), Title, Company, Applied date
 - Default sort: most actionable applications first (offer → interview → assessment → ...)
 - Detail panel with full history of status changes
-- Two input methods: pick from a job search report, or paste a job URL
 
 ---
 
@@ -75,33 +82,30 @@ Track your job applications through the hiring pipeline.
 ```
 ├── main.tex                    ← YOUR CV (edit this)
 ├── photo.png                   ← Your photo for the CV (replace this)
+├── web.py                      ← Unified Flask server (port 5000)  ← NEW
+├── index.html                  ← Unified dashboard UI              ← NEW
+├── run.sh                      ← Single launcher: wsl bash run.sh  ← NEW
 │
 ├── job_search/
 │   ├── cv_parser.py            ← Parses main.tex automatically
-│   ├── searcher.py             ← Scraping engine (python-jobspy)
+│   ├── searcher.py             ← Scraping engine (python-jobspy + custom)
 │   ├── scorer.py               ← CV-match scoring logic
-│   ├── web.py                  ← Flask server (port 5052)
-│   ├── main.py                 ← CLI entry point
-│   ├── index.html              ← Web UI
-│   └── run_job_search.sh       ← Launch script
+│   ├── web.py                  ← Standalone Flask server (port 5052)
+│   └── run_job_search.sh       ← Standalone launch script
 │
 ├── cover_letter/
 │   ├── cv_data.example.py      ← TEMPLATE — copy to cv_data.py and edit
-│   ├── cv_data.py              ← YOUR DATA (gitignored, created from example)
+│   ├── cv_data.py              ← YOUR DATA (gitignored)
 │   ├── generator.py            ← Cover letter generation logic
 │   ├── job_fetcher.py          ← Fetches job info from URLs
-│   ├── web.py                  ← Flask server (port 5051)
-│   ├── main.py                 ← CLI entry point
-│   ├── index.html              ← Web UI
-│   └── run.sh                  ← Launch script
+│   ├── web.py                  ← Standalone Flask server (port 5051)
+│   └── run.sh                  ← Standalone launch script
 │
 └── log/
     ├── tracker.py              ← JSON-backed application store
-    ├── web.py                  ← Flask server (port 5050)
-    ├── main.py                 ← CLI entry point
-    ├── index.html              ← Web UI
+    ├── web.py                  ← Standalone Flask server (port 5050)
     ├── applications.json       ← YOUR DATA (gitignored)
-    └── run.sh                  ← Launch script
+    └── run.sh                  ← Standalone launch script
 ```
 
 ---

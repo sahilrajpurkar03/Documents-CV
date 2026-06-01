@@ -6,6 +6,9 @@ Track every application, update its status, and always know what is pending.
 
 ## Quick Start
 
+> **Recommended:** Use the unified dashboard — `wsl bash run.sh` at the project root opens http://localhost:5000. The 📋 **Log** tab is fully integrated: click 💾 to save a job, 📝 to mark it applied, straight from any search result.
+
+### Standalone web UI (if you need just this tool)
 ```powershell
 # Web UI — view pipeline, add applications, update status in browser
 wsl bash log/run.sh web
