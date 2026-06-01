@@ -1,3 +1,6 @@
-requests>=2.31
-beautifulsoup4>=4.12
-rich>=13.0
+# Cover Letter Generator — Python dependencies
+# (all deps included in root requirements.txt)
+requests>=2.34
+beautifulsoup4>=4.14
+rich>=15.0
+flask>=3.1

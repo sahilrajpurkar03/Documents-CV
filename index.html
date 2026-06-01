@@ -20,16 +20,16 @@
     --cyan:    #38bdf8;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; font-size: 15px; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
 
   /* ── Header ── */
-  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 28px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
-  header h1 { font-size: 1.15rem; color: var(--accent); }
-  header .subtitle { color: var(--muted); font-size: 0.8rem; margin-top: 2px; }
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 28px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  header h1 { font-size: 1.3rem; color: var(--accent); }
+  header .subtitle { color: var(--muted); font-size: 0.86rem; margin-top: 3px; }
 
   /* ── Tab bar ── */
   .tab-bar { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 28px; flex-shrink: 0; }
-  .tab-btn { padding: 10px 20px; font-size: 0.88rem; background: none; border: none; border-bottom: 3px solid transparent; color: var(--muted); cursor: pointer; transition: color .15s, border-color .15s; }
+  .tab-btn { padding: 13px 24px; font-size: 0.97rem; background: none; border: none; border-bottom: 3px solid transparent; color: var(--muted); cursor: pointer; transition: color .15s, border-color .15s; }
   .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
   .tab-btn:hover  { color: var(--text); }
   .tab-panel { display: none; flex: 1; flex-direction: column; overflow: hidden; }
@@ -38,10 +38,10 @@
   /* ── Controls ── */
   .ctrl-bar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 28px; display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; flex-shrink: 0; }
   .ctrl-group { display: flex; flex-direction: column; gap: 4px; }
-  .ctrl-group label { color: var(--muted); font-size: 0.76rem; }
-  .ctrl-group select, .ctrl-group input { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 7px 10px; border-radius: 6px; font-size: 0.86rem; }
+  .ctrl-group label { color: var(--muted); font-size: 0.8rem; }
+  .ctrl-group select, .ctrl-group input { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 8px 11px; border-radius: 6px; font-size: 0.9rem; }
   .ctrl-group select:focus, .ctrl-group input:focus { outline: none; border-color: var(--accent); }
-  .btn { padding: 7px 18px; border-radius: 6px; font-size: 0.88rem; cursor: pointer; border: none; transition: opacity .15s; }
+  .btn { padding: 8px 20px; border-radius: 6px; font-size: 0.92rem; cursor: pointer; border: none; transition: opacity .15s; }
   .btn:hover:not(:disabled) { opacity: 0.85; }
   .btn:disabled { opacity: 0.45; cursor: not-allowed; }
   .btn-primary { background: var(--accent); color: #0f172a; font-weight: 700; align-self: flex-end; }
@@ -62,35 +62,39 @@
 
   /* ── Table ── */
   .table-wrap { flex: 1; overflow: auto; padding: 0 28px 28px; }
-  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 10px; }
-  th { background: var(--surface); color: var(--accent); padding: 8px 8px; text-align: left; position: sticky; top: 0; white-space: nowrap; cursor: pointer; user-select: none; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-top: 10px; }
+  th { background: var(--surface); color: var(--accent); padding: 10px 10px; text-align: left; position: sticky; top: 0; white-space: nowrap; cursor: pointer; user-select: none; font-size: 0.82rem; letter-spacing: .02em; }
   th:hover { color: var(--text); }
-  td { padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  td { padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; line-height: 1.45; }
   tr:hover td { background: rgba(56,189,248,.04); }
-  .col-rank  { width: 32px; text-align: center; color: var(--muted); }
-  .col-score { width: 68px; text-align: center; }
-  .col-title { min-width: 190px; font-weight: 500; }
-  .col-co    { min-width: 120px; }
-  .col-loc   { min-width: 100px; color: var(--muted); font-size: 0.78rem; }
-  .col-src   { width: 76px; }
-  .col-sal   { min-width: 100px; font-size: 0.78rem; color: var(--green); }
+  .col-rank  { width: 34px; text-align: center; color: var(--muted); }
+  .col-score { width: 76px; text-align: center; }
+  .col-title { min-width: 200px; font-weight: 600; }
+  .col-co    { min-width: 130px; }
+  .col-loc   { min-width: 100px; color: var(--muted); font-size: 0.82rem; }
+  .col-src   { width: 84px; }
+  .col-sal   { min-width: 100px; font-size: 0.82rem; color: var(--green); }
   .col-kw    { min-width: 160px; }
-  .col-date  { width: 84px; color: var(--muted); font-size: 0.78rem; }
-  .col-acts  { width: 178px; white-space: nowrap; }
+  .col-date  { width: 90px; color: var(--muted); font-size: 0.82rem; }
+  .col-acts  { width: 230px; white-space: nowrap; }
 
   /* ── Action buttons on job rows ── */
-  .act-small { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 4px; padding: 2px 7px; font-size: 0.72rem; cursor: pointer; margin-right: 3px; transition: all .12s; }
+  .act-small { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 5px; padding: 5px 10px; font-size: 0.8rem; cursor: pointer; margin-right: 4px; margin-bottom: 3px; transition: all .12s; white-space: nowrap; }
   .act-small:hover { border-color: var(--accent); color: var(--accent); }
   .act-cl:hover  { border-color: var(--purple) !important; color: var(--purple) !important; }
   .act-sv:hover  { border-color: var(--green)  !important; color: var(--green)  !important; }
-  .act-log:hover { border-color: var(--yellow) !important; color: var(--yellow) !important; }
-  .apply-btn { display: inline-block; background: var(--accent); color: #0f172a; border-radius: 4px; padding: 2px 9px; font-size: 0.72rem; font-weight: 700; text-decoration: none; white-space: nowrap; }
+  .act-log:hover { border-color: var(--accent) !important; color: var(--accent) !important; }
+  /* Active (toggled on) states */
+  .act-small.active-sv  { background: rgba(34,197,94,.15); border-color: var(--green); color: var(--green); }
+  .act-small.active-log { background: rgba(56,189,248,.15); border-color: var(--accent); color: var(--accent); }
+  .act-small.locked     { border-color: var(--border); color: var(--muted); opacity: 0.5; cursor: default; }
+  .apply-btn { display: inline-block; background: var(--accent); color: #0f172a; border-radius: 5px; padding: 5px 12px; font-size: 0.8rem; font-weight: 700; text-decoration: none; white-space: nowrap; }
   .apply-btn:hover { opacity: 0.85; }
-  .applied-badge { display: inline-block; background: rgba(34,197,94,.15); color: #4ade80; border: 1px solid rgba(34,197,94,.3); border-radius: 4px; padding: 2px 9px; font-size: 0.72rem; font-weight: 600; }
-  tr.row-applied td { opacity: 0.4; }
+  .in-log-badge { display: inline-block; background: rgba(34,197,94,.1); color: #4ade80; border: 1px solid rgba(34,197,94,.25); border-radius: 5px; padding: 2px 8px; font-size: 0.75rem; font-weight: 600; margin-left: 2px; }
+  tr.row-applied td { opacity: 0.65; }
 
   /* ── Source & quality badges ── */
-  .src-badge { display: inline-block; border-radius: 4px; padding: 1px 6px; font-size: 0.7rem; font-weight: 600; }
+  .src-badge { display: inline-block; border-radius: 4px; padding: 2px 7px; font-size: 0.76rem; font-weight: 600; }
   .src-linkedin   { background: rgba(10,102,194,.18); color: #60a5fa; }
   .src-indeed     { background: rgba(34,197,94,.12);  color: #86efac; }
   .src-stepstone  { background: rgba(239,68,68,.15);  color: #fca5a5; }
@@ -103,7 +107,7 @@
   .q-Very.Good, .q-Good { color: #22c55e; }
   .q-Fair      { color: #fbbf24; }
   .q-Low       { color: #f87171; }
-  .kw-chip { display: inline-block; background: rgba(56,189,248,.1); color: var(--accent); border-radius: 10px; padding: 1px 6px; font-size: 0.7rem; margin: 1px; }
+  .kw-chip { display: inline-block; background: rgba(56,189,248,.1); color: var(--accent); border-radius: 10px; padding: 2px 7px; font-size: 0.76rem; margin: 1px; }
   .score-bar { display: inline-block; height: 4px; border-radius: 2px; background: var(--accent); margin-left: 4px; vertical-align: middle; opacity: .6; }
   .score-cell { position: relative; cursor: help; }
   .breakdown-tip { display: none; position: absolute; left: 50%; transform: translateX(-50%); top: calc(100% + 4px); z-index: 100; background: #0f172a; border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; min-width: 200px; font-size: 0.76rem; white-space: nowrap; box-shadow: 0 8px 24px rgba(0,0,0,.6); }
@@ -749,32 +753,48 @@ function renderTable(pfx, jobs) {
       <td class="col-date">${esc((j.date_posted||'').slice(0,10)||'—')}</td>
       <td class="col-acts"></td>`;
 
-    // Build action buttons (using closures to capture j)
+    // Build action buttons — always visible regardless of applied status
     const actCell = tr.querySelector('.col-acts');
-    if (!j.applied) {
-      const clBtn = document.createElement('button');
-      clBtn.className = 'act-small act-cl'; clBtn.title = 'Generate Cover Letter';
-      clBtn.textContent = '📄'; clBtn.addEventListener('click', () => openCL(j));
-      actCell.appendChild(clBtn);
 
-      const svBtn = document.createElement('button');
-      svBtn.className = 'act-small act-sv'; svBtn.title = 'Save job (bookmark)';
-      svBtn.textContent = '💾'; svBtn.addEventListener('click', () => quickLogJob(j, 'saved', svBtn));
-      actCell.appendChild(svBtn);
+    const clBtn = document.createElement('button');
+    clBtn.className = 'act-small act-cl'; clBtn.title = 'Generate Cover Letter';
+    clBtn.textContent = '📄 Cover Letter'; clBtn.addEventListener('click', () => openCL(j));
+    actCell.appendChild(clBtn);
 
-      const logBtn = document.createElement('button');
-      logBtn.className = 'act-small act-log'; logBtn.title = 'Log as Applied';
-      logBtn.textContent = '📝'; logBtn.addEventListener('click', () => quickLogJob(j, 'applied', logBtn));
-      actCell.appendChild(logBtn);
+    const svBtn  = document.createElement('button');
+    svBtn.className  = 'act-small act-sv';  svBtn.title  = 'Save job (click again to undo)';
+    svBtn.textContent  = '💾 Save';
+
+    const logBtn = document.createElement('button');
+    logBtn.className = 'act-small act-log'; logBtn.title = 'Log as Applied (click again to undo)';
+    logBtn.textContent = '📝 Applied';
+
+    actCell.appendChild(svBtn);
+    actCell.appendChild(logBtn);
+
+    // Wire undo-aware handlers
+    svBtn.addEventListener('click',  () => quickLogJob(j, 'saved',   svBtn, logBtn));
+    logBtn.addEventListener('click', () => quickLogJob(j, 'applied', svBtn, logBtn));
+
+    // Restore button state if already logged this session
+    const _key = jobKey(j);
+    const _state = JOB_STATE.get(_key);
+    if (_state) {
+      _updateActionBtns(_state.status, svBtn, logBtn);
+    } else if (j.applied) {
+      // Pre-existing entry in log (server-flagged) — show locked active state
+      svBtn.classList.add('locked');
+      logBtn.classList.add('active-log');
+      logBtn.title = 'Already in log — go to 📋 Log tab to manage';
+      const badge = document.createElement('span');
+      badge.className = 'in-log-badge'; badge.textContent = '✓ In Log';
+      actCell.appendChild(badge);
     }
+
     if (j.url) {
       const a = document.createElement('a');
       a.className = 'apply-btn'; a.href = j.url; a.target = '_blank'; a.textContent = 'Apply ↗';
       actCell.appendChild(a);
-    } else if (j.applied) {
-      const badge = document.createElement('span');
-      badge.className = 'applied-badge'; badge.textContent = '✓ Applied';
-      actCell.appendChild(badge);
     }
 
     tbody.appendChild(tr);
@@ -1020,9 +1040,66 @@ function copyCL() {
   navigator.clipboard.writeText(text).then(() => showToast('Copied to clipboard!'));
 }
 
+// ── Job state map for undo ────────────────────────────────────────────────
+const JOB_STATE = new Map(); // jobKey → { id, status }
+function jobKey(j) {
+  return j.url ? j.url : `${(j.title||'').toLowerCase().trim()}|${(j.company||'').toLowerCase().trim()}`;
+}
+function _updateActionBtns(status, svBtn, logBtn) {
+  if (status === 'saved') {
+    svBtn.classList.add('active-sv');    svBtn.title  = '✓ Saved — click to undo';
+    logBtn.classList.remove('active-log'); logBtn.title = '📝 Log as Applied (click again to undo)';
+  } else {
+    logBtn.classList.add('active-log');  logBtn.title = '✓ Applied — click to undo';
+    svBtn.classList.remove('active-sv'); svBtn.title  = '💾 Save (click again to undo)';
+  }
+}
+function _resetActionBtns(svBtn, logBtn) {
+  svBtn.classList.remove('active-sv');   svBtn.title  = '💾 Save job (click again to undo)';
+  logBtn.classList.remove('active-log'); logBtn.title = '📝 Log as Applied (click again to undo)';
+}
+
 // ── Quick log a job directly from search results ──────────────────────────
-async function quickLogJob(j, status, btn) {
-  btn.disabled = true;
+async function quickLogJob(j, status, svBtn, logBtn) {
+  const key   = jobKey(j);
+  const state = JOB_STATE.get(key);
+
+  // Already in log this session with same status → DELETE (undo)
+  if (state && state.status === status) {
+    try {
+      const res = await fetch(`/api/applications/${state.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        JOB_STATE.delete(key);
+        _resetActionBtns(svBtn, logBtn);
+        showToast(`↩ Undone: ${j.title}`);
+      }
+    } catch(e) { showToast('Network error: ' + e.message, true); }
+    return;
+  }
+
+  // Already in log this session with different status → PATCH
+  if (state) {
+    try {
+      const res = await fetch(`/api/applications/${state.id}`, {
+        method: 'PATCH', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) {
+        state.status = status;
+        _updateActionBtns(status, svBtn, logBtn);
+        showToast(status === 'saved' ? `💾 Saved: ${j.title}` : `📝 Applied: ${j.title}`);
+      }
+    } catch(e) { showToast('Network error: ' + e.message, true); }
+    return;
+  }
+
+  // Server-flagged as already in log but no session ID → redirect to log tab
+  if (j.applied) {
+    showToast('Already in your log — go to the 📋 Log tab to manage it.');
+    return;
+  }
+
+  // New entry
   try {
     const res = await fetch('/api/applications', {
       method: 'POST', headers: {'Content-Type':'application/json'},
@@ -1033,13 +1110,14 @@ async function quickLogJob(j, status, btn) {
       }),
     });
     if (res.ok) {
-      showToast(status === 'saved' ? `💾 Saved: ${j.title}` : `📝 Logged applied: ${j.title}`);
-      btn.textContent = status === 'saved' ? '✓💾' : '✓📝';
-      btn.style.borderColor = 'var(--green)'; btn.style.color = 'var(--green)';
+      const entry = await res.json();
+      JOB_STATE.set(key, { id: entry.id, status });
+      _updateActionBtns(status, svBtn, logBtn);
+      showToast(status === 'saved' ? `💾 Saved: ${j.title}` : `📝 Applied: ${j.title}`);
     } else {
-      showToast('Failed to log job', true); btn.disabled = false;
+      showToast('Failed to log job', true);
     }
-  } catch(e) { showToast('Network error: ' + e.message, true); btn.disabled = false; }
+  } catch(e) { showToast('Network error: ' + e.message, true); }
 }
 
 // ══════════════════════════════════════════════════════════════════════════

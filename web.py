@@ -95,6 +95,9 @@ def _applied_set():
         return applied_urls, applied_keys
     try:
         for e in json.loads(_LOG_FILE.read_text(encoding="utf-8")):
+            # Don't exclude 'saved' jobs — only exclude actively tracked ones
+            if (e.get("status") or "") == "saved":
+                continue
             u = (e.get("url") or "").strip()
             if u:
                 applied_urls.add(u)

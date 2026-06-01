@@ -1,10 +1,17 @@
 # Job Search Tool — Python dependencies
 
-# Core job scraping (LinkedIn, Indeed, Glassdoor, ZipRecruiter, Google Jobs)
-python-jobspy>=0.1.10
+# Core job scraping (LinkedIn, Indeed, Google Jobs, StepStone, Xing)
+python-jobspy>=1.1
+
+# HTTP + HTML parsing (StepStone & Xing scrapers)
+requests>=2.34
+beautifulsoup4>=4.14
+
+# Web server
+flask>=3.1
 
 # Terminal UI
-rich>=13.0
+rich>=15.0
 
-# Data handling (used by jobspy internally + our CSV export)
-pandas>=2.0
+# Data handling (used by jobspy internally)
+pandas>=2.3

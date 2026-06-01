@@ -1,0 +1,19 @@
+# Unified Job Hunt Dashboard — Python dependencies
+# Install with: pip install -r requirements.txt
+# Or just run:  wsl bash run.sh  (auto-installs on first launch)
+
+# Web server
+flask>=3.1
+
+# Job scraping (LinkedIn, Indeed, Google Jobs, StepStone, Xing)
+python-jobspy>=1.1
+
+# HTTP + HTML parsing (StepStone & Xing scrapers, job URL fetcher)
+requests>=2.34
+beautifulsoup4>=4.14
+
+# Terminal output
+rich>=15.0
+
+# Data handling (used internally by python-jobspy)
+pandas>=2.3
