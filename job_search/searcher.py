@@ -220,11 +220,13 @@ def _scrape_stepstone(
         # StepStone article cards: data-at="job-item"
         cards = soup.select("article[data-at='job-item']")
         for card in cards[:results_wanted]:
-            title_el = card.select_one("[data-at='job-item-title']")
-            company_el = card.select_one("[data-at='job-item-company-name']")
+            title_el    = card.select_one("[data-at='job-item-title']")
+            company_el  = card.select_one("[data-at='job-item-company-name']")
             location_el = card.select_one("[data-at='job-item-location']")
-            link_el = card.select_one("a[data-at='job-item-title']")
-            date_el = card.select_one("time")
+            link_el     = card.select_one("a[data-at='job-item-title']")
+            date_el     = card.select_one("time")
+            # Description snippet embedded in the search-result card
+            desc_el     = card.select_one("[data-at='jobcard-content']")
 
             title   = title_el.get_text(strip=True) if title_el else ""
             company = company_el.get_text(strip=True) if company_el else ""
@@ -232,13 +234,15 @@ def _scrape_stepstone(
             href    = link_el.get("href", "") if link_el else ""
             job_url = ("https://www.stepstone.de" + href) if href.startswith("/") else href
             date    = date_el.get("datetime", "")[:10] if date_el else ""
+            desc    = desc_el.get_text(" ", strip=True)[:800] if desc_el else ""
 
             if title and company:
                 listings.append(JobListing(
                     title=title, company=company, location=loc,
                     url=job_url, source="stepstone",
-                    date_posted=date,
+                    date_posted=date, description=desc,
                 ))
+
     except Exception:
         pass
     return listings
@@ -250,9 +254,10 @@ def _scrape_xing(
     results_wanted: int = 15,
     hours_old: int = 504,
 ) -> List[JobListing]:
-    """Scrape Xing jobs for a given search term via their JSON search API."""
+    """Scrape Xing jobs via HTML card scraping (data-testid='job-search-result')."""
     try:
         import requests
+        from bs4 import BeautifulSoup
     except ImportError:
         return []
 
@@ -262,45 +267,71 @@ def _scrape_xing(
             "keywords": term,
             "location": location,
             "sort":     "date",
-            "limit":    results_wanted,
-            "offset":   0,
         }
-        # Xing public JSON API (no auth required for basic search)
-        api_url = "https://www.xing.com/jobs/api/search?" + urllib.parse.urlencode(params)
+        search_url = "https://www.xing.com/jobs/search?" + urllib.parse.urlencode(params)
         headers = {
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                 "AppleWebKit/537.36 (KHTML, like Gecko) "
                 "Chrome/124.0.0.0 Safari/537.36"
             ),
-            "Accept": "application/json",
-            "X-Requested-With": "XMLHttpRequest",
+            "Accept-Language": "de-DE,de;q=0.9,en;q=0.8",
+            "Accept": "text/html,application/xhtml+xml,*/*",
+            "Referer": "https://www.xing.com/",
         }
-        resp = requests.get(api_url, headers=headers, timeout=15)
+        # Use a session so cookies persist; warm up with homepage first
+        session = requests.Session()
+        session.headers.update(headers)
+        try:
+            session.get("https://www.xing.com/", timeout=8)
+        except Exception:
+            pass
+        time.sleep(random.uniform(0.5, 1.5))
+        resp = session.get(search_url, timeout=20)
+        # Retry once on 503
+        if resp.status_code == 503:
+            time.sleep(2)
+            resp = session.get(search_url, timeout=20)
         if resp.status_code != 200:
             return []
-        data = resp.json()
+        soup = BeautifulSoup(resp.text, "html.parser")
+        cards = soup.find_all(attrs={"data-testid": "job-search-result"})
 
-        # Response structure: data.jobs.collection or data.collection
-        collection = (
-            data.get("jobs", {}).get("collection")
-            or data.get("collection")
-            or []
-        )
-        for job in collection[:results_wanted]:
-            title   = job.get("title", "") or job.get("name", "")
-            company = (job.get("company") or {}).get("name", "")
-            loc_obj = job.get("location") or {}
-            loc     = loc_obj.get("city", "") or location
-            slug    = job.get("slug") or job.get("id", "")
-            job_url = f"https://www.xing.com/jobs/{slug}" if slug else ""
-            date    = (job.get("publishedAt") or "")[:10]
+        for card in cards[:results_wanted]:
+            # Title: from data-testid="job-teaser-list-title" or article aria-label
+            title_el = card.find(attrs={"data-testid": "job-teaser-list-title"})
+            if title_el:
+                title = title_el.get_text(strip=True)
+            else:
+                raw = card.get("aria-label", "")
+                title = raw.split(". Klicke")[0].strip()
+
+            # Company: from img[alt] inside the card (logo alt text = company name)
+            img = card.find("img", alt=True)
+            company = img["alt"].strip() if img else ""
+
+            # URL: first anchor href
+            a_el = card.find("a", href=True)
+            href = a_el["href"] if a_el else ""
+            job_url = ("https://www.xing.com" + href) if href.startswith("/") else href
+
+            # Location: card text heuristic — first short token that isn't title/company
+            card_text = card.get_text(separator="\n", strip=True)
+            loc = ""
+            _skip = {"full-time", "part-time", "job merken", "dringend", "jetzt bewerben"}
+            for line in card_text.splitlines():
+                line = line.strip()
+                if (line and line != title and line != company
+                        and len(line) < 60 and "€" not in line
+                        and not any(s in line.lower() for s in _skip)):
+                    loc = line
+                    break
 
             if title and company:
                 listings.append(JobListing(
                     title=title, company=company, location=loc,
                     url=job_url, source="xing",
-                    date_posted=date,
+                    date_posted="",
                 ))
     except Exception:
         pass
