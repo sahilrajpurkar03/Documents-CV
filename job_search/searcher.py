@@ -271,7 +271,7 @@ def _scrape_xing(
         search_url = "https://www.xing.com/jobs/search?" + urllib.parse.urlencode(params)
         headers = {
             "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "Mozilla/5.0 (X11; Linux x86_64) "
                 "AppleWebKit/537.36 (KHTML, like Gecko) "
                 "Chrome/124.0.0.0 Safari/537.36"
             ),
@@ -294,6 +294,7 @@ def _scrape_xing(
             resp = session.get(search_url, timeout=20)
         if resp.status_code != 200:
             return []
+        resp.encoding = "utf-8"  # Xing serves UTF-8; prevent mis-detection
         soup = BeautifulSoup(resp.text, "html.parser")
         cards = soup.find_all(attrs={"data-testid": "job-search-result"})
 
@@ -306,9 +307,9 @@ def _scrape_xing(
                 raw = card.get("aria-label", "")
                 title = raw.split(". Klicke")[0].strip()
 
-            # Company: from img[alt] inside the card (logo alt text = company name)
-            img = card.find("img", alt=True)
-            company = img["alt"].strip() if img else ""
+            # Company: logo img uses aria-label (alt is empty) = company name
+            img = card.find("img", attrs={"aria-label": True})
+            company = img["aria-label"].strip() if img else ""
 
             # URL: first anchor href
             a_el = card.find("a", href=True)
@@ -318,11 +319,13 @@ def _scrape_xing(
             # Location: card text heuristic — first short token that isn't title/company
             card_text = card.get_text(separator="\n", strip=True)
             loc = ""
-            _skip = {"full-time", "part-time", "job merken", "dringend", "jetzt bewerben"}
+            _skip = {"full-time", "part-time", "job merken", "dringend", "jetzt bewerben",
+                     "last chance", "dringend gesucht", "sofort", "neu"}
             for line in card_text.splitlines():
                 line = line.strip()
                 if (line and line != title and line != company
                         and len(line) < 60 and "€" not in line
+                        and not line.isdigit()
                         and not any(s in line.lower() for s in _skip)):
                     loc = line
                     break
