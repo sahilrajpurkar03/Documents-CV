@@ -389,12 +389,9 @@ function selectJob(job, tr) {
   document.querySelectorAll('.job-row.selected').forEach(r => r.classList.remove('selected'));
   tr.classList.add('selected');
   selectedJob = job;
-  // Pre-fill URL field if empty
-  if (job.url && !document.getElementById('url-manual').value) {
-    document.getElementById('url-manual').value = job.url;
-  } else if (job.url) {
-    document.getElementById('url-manual').value = job.url;
-  }
+  // Pre-fill URL field in the From URL tab
+  const urlInput = document.getElementById('manual-url');
+  if (urlInput && job.url) urlInput.value = job.url;
   updateIndicator();
 }
 
@@ -409,7 +406,7 @@ function updateIndicator() {
 
 // ── Generate ───────────────────────────────────────────────────────────────
 async function generate() {
-  const url    = document.getElementById('url-manual').value.trim();
+  const url    = (document.getElementById('manual-url') || {value:''}).value.trim();
   const mode   = document.getElementById('opt-mode').value;
   const avail  = document.getElementById('opt-avail').value.trim() || '1 October 2026';
   const ref    = document.getElementById('opt-ref').value.trim();
