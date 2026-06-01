@@ -137,7 +137,7 @@ def api_search():
     top_n      = int(data.get("top_n", 40))
     per_term   = int(data.get("per_term", 15))
     hours_old  = int(data.get("hours_old", 504))
-    sites      = data.get("sites") or ["linkedin","indeed","glassdoor","google"]
+    sites      = data.get("sites") or ["linkedin","indeed","google","stepstone","xing"]
 
     if region not in REGIONS:
         return jsonify({"error": f"Unknown region '{region}'"}), 400
@@ -263,7 +263,7 @@ def api_search_company():
     company_name = (data.get("company") or "").strip()
     region       = data.get("region", "Germany")
     top_n        = int(data.get("top_n", 40))
-    sites        = data.get("sites") or ["linkedin","indeed","glassdoor","google"]
+    sites        = data.get("sites") or ["linkedin","indeed","google","stepstone","xing"]
 
     if not company_name:
         return jsonify({"error": "Company name required"}), 400

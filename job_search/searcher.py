@@ -1,6 +1,7 @@
 """
-Job Search Engine — queries LinkedIn, Indeed, Glassdoor, Google Jobs
-Uses the `python-jobspy` library as the unified scraper backend.
+Job Search Engine — queries LinkedIn, Indeed, Google Jobs, StepStone, Xing
+Uses the `python-jobspy` library for LinkedIn/Indeed/Google and
+custom scrapers for StepStone.de and Xing.
 """
 
 from __future__ import annotations
@@ -8,6 +9,7 @@ from __future__ import annotations
 import re
 import time
 import random
+import urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any, Callable
@@ -180,6 +182,131 @@ def _df_to_listings(df: pd.DataFrame) -> List[JobListing]:
     return listings
 
 
+def _scrape_stepstone(
+    term: str,
+    location: str = "Deutschland",
+    results_wanted: int = 15,
+    hours_old: int = 504,
+) -> List[JobListing]:
+    """Scrape StepStone.de for a given search term."""
+    try:
+        import requests
+        from bs4 import BeautifulSoup
+    except ImportError:
+        return []
+
+    listings: List[JobListing] = []
+    try:
+        params = {
+            "q":    term,
+            "l":    location,
+            "sort": "date",
+        }
+        url = "https://www.stepstone.de/jobs/?" + urllib.parse.urlencode(params)
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36"
+            ),
+            "Accept-Language": "en-US,en;q=0.9,de;q=0.8",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        }
+        resp = requests.get(url, headers=headers, timeout=15)
+        if resp.status_code != 200:
+            return []
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        # StepStone article cards: data-at="job-item"
+        cards = soup.select("article[data-at='job-item']")
+        for card in cards[:results_wanted]:
+            title_el = card.select_one("[data-at='job-item-title']")
+            company_el = card.select_one("[data-at='job-item-company-name']")
+            location_el = card.select_one("[data-at='job-item-location']")
+            link_el = card.select_one("a[data-at='job-item-title']")
+            date_el = card.select_one("time")
+
+            title   = title_el.get_text(strip=True) if title_el else ""
+            company = company_el.get_text(strip=True) if company_el else ""
+            loc     = location_el.get_text(strip=True) if location_el else location
+            href    = link_el.get("href", "") if link_el else ""
+            job_url = ("https://www.stepstone.de" + href) if href.startswith("/") else href
+            date    = date_el.get("datetime", "")[:10] if date_el else ""
+
+            if title and company:
+                listings.append(JobListing(
+                    title=title, company=company, location=loc,
+                    url=job_url, source="stepstone",
+                    date_posted=date,
+                ))
+    except Exception:
+        pass
+    return listings
+
+
+def _scrape_xing(
+    term: str,
+    location: str = "Deutschland",
+    results_wanted: int = 15,
+    hours_old: int = 504,
+) -> List[JobListing]:
+    """Scrape Xing jobs for a given search term via their JSON search API."""
+    try:
+        import requests
+    except ImportError:
+        return []
+
+    listings: List[JobListing] = []
+    try:
+        params = {
+            "keywords": term,
+            "location": location,
+            "sort":     "date",
+            "limit":    results_wanted,
+            "offset":   0,
+        }
+        # Xing public JSON API (no auth required for basic search)
+        api_url = "https://www.xing.com/jobs/api/search?" + urllib.parse.urlencode(params)
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36"
+            ),
+            "Accept": "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+        }
+        resp = requests.get(api_url, headers=headers, timeout=15)
+        if resp.status_code != 200:
+            return []
+        data = resp.json()
+
+        # Response structure: data.jobs.collection or data.collection
+        collection = (
+            data.get("jobs", {}).get("collection")
+            or data.get("collection")
+            or []
+        )
+        for job in collection[:results_wanted]:
+            title   = job.get("title", "") or job.get("name", "")
+            company = (job.get("company") or {}).get("name", "")
+            loc_obj = job.get("location") or {}
+            loc     = loc_obj.get("city", "") or location
+            slug    = job.get("slug") or job.get("id", "")
+            job_url = f"https://www.xing.com/jobs/{slug}" if slug else ""
+            date    = (job.get("publishedAt") or "")[:10]
+
+            if title and company:
+                listings.append(JobListing(
+                    title=title, company=company, location=loc,
+                    url=job_url, source="xing",
+                    date_posted=date,
+                ))
+    except Exception:
+        pass
+    return listings
+
+
 def _scrape_one_term(
     term: str,
     sites: List[str],
@@ -192,34 +319,52 @@ def _scrape_one_term(
     on_progress: Optional[Callable[[str], None]] = None,
 ) -> List[JobListing]:
     """Scrape a single search term. Designed for use in ThreadPoolExecutor."""
-    try:
-        from jobspy import scrape_jobs
-    except ImportError:
-        return []
-
     if on_progress:
         on_progress(term)
 
     # Stagger threads slightly to avoid simultaneous connection bursts
     time.sleep(random.uniform(0.2, 1.2))
 
-    try:
-        df = scrape_jobs(
-            site_name=sites,
-            search_term=term,
-            location=location_str,
-            results_wanted=results_per_term,
-            hours_old=hours_old,
-            country_indeed=country_indeed,
-            linkedin_fetch_description=True,
-            verbose=0,
-        )
-        if df is not None and len(df) > 0:
-            return _df_to_listings(df)
-    except Exception as exc:
-        if verbose:
-            print(f"    [warn] {term}: {exc}")
-    return []
+    results: List[JobListing] = []
+
+    # ── jobspy sites ──────────────────────────────────────────────────────
+    jobspy_sites = [s for s in sites if s not in ("stepstone", "xing")]
+    if jobspy_sites:
+        try:
+            from jobspy import scrape_jobs
+            df = scrape_jobs(
+                site_name=jobspy_sites,
+                search_term=term,
+                location=location_str,
+                results_wanted=results_per_term,
+                hours_old=hours_old,
+                country_indeed=country_indeed,
+                linkedin_fetch_description=True,
+                verbose=0,
+            )
+            if df is not None and len(df) > 0:
+                results.extend(_df_to_listings(df))
+        except Exception as exc:
+            if verbose:
+                print(f"    [warn] jobspy {term}: {exc}")
+
+    # ── StepStone ─────────────────────────────────────────────────────────
+    if "stepstone" in sites:
+        try:
+            results.extend(_scrape_stepstone(term, location_str, results_per_term, hours_old))
+        except Exception as exc:
+            if verbose:
+                print(f"    [warn] stepstone {term}: {exc}")
+
+    # ── Xing ──────────────────────────────────────────────────────────────
+    if "xing" in sites:
+        try:
+            results.extend(_scrape_xing(term, location_str, results_per_term, hours_old))
+        except Exception as exc:
+            if verbose:
+                print(f"    [warn] xing {term}: {exc}")
+
+    return results
 
 
 def search_jobs(
@@ -247,7 +392,7 @@ def search_jobs(
 
     region = REGIONS[region_name]
     if sites is None:
-        sites = ["linkedin", "indeed", "glassdoor", "google"]
+        sites = ["linkedin", "indeed", "google", "stepstone", "xing"]
 
     location_str = region["cities"][0]
 
@@ -327,7 +472,7 @@ def search_company(
     region = REGIONS[region_name]
 
     if sites is None:
-        sites = ["linkedin", "indeed", "glassdoor", "google"]
+        sites = ["linkedin", "indeed", "google", "stepstone", "xing"]
 
     if verbose:
         print(f"  Searching company: \"{company_name}\" [{region['flag']} {region_name}] ...", flush=True)
