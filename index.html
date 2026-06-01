@@ -88,6 +88,9 @@
   .act-small.active-sv  { background: rgba(34,197,94,.15); border-color: var(--green); color: var(--green); }
   .act-small.active-log { background: rgba(56,189,248,.15); border-color: var(--accent); color: var(--accent); }
   .act-small.locked     { border-color: var(--border); color: var(--muted); opacity: 0.5; cursor: default; }
+  /* ── CSV export/load buttons ── */
+  .btn-csv { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 5px; padding: 6px 13px; font-size: 0.82rem; cursor: pointer; transition: all .12s; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+  .btn-csv:hover { border-color: var(--accent); color: var(--accent); }
   .apply-btn { display: inline-block; background: var(--accent); color: #0f172a; border-radius: 5px; padding: 5px 12px; font-size: 0.8rem; font-weight: 700; text-decoration: none; white-space: nowrap; }
   .apply-btn:hover { opacity: 0.85; }
   .in-log-badge { display: inline-block; background: rgba(34,197,94,.1); color: #4ade80; border: 1px solid rgba(34,197,94,.25); border-radius: 5px; padding: 2px 8px; font-size: 0.75rem; font-weight: 600; margin-left: 2px; }
@@ -310,12 +313,19 @@
     </div>
     <button class="btn btn-primary" id="r-search-btn" onclick="startRegionSearch()">Search ↗</button>
     <button class="btn btn-ghost"   id="r-stop-btn"   onclick="stopSearch()" style="display:none">⏹ Stop</button>
+    <label class="btn btn-ghost" title="Load a saved CSV" style="cursor:pointer;align-self:flex-end">
+      📂 Load CSV<input type="file" id="r-csv-ctrl-input" accept=".csv" style="display:none" onchange="loadCSV('r',this)">
+    </label>
   </div>
   <div class="prog-wrap" id="prog-region"></div>
   <div class="result-toolbar" id="r-toolbar" style="display:none">
     <input id="r-filter" type="text" placeholder="Filter results…" oninput="filterResults('r')">
     <label style="display:flex;align-items:center;gap:5px;font-size:0.8rem;color:var(--muted);cursor:pointer">
       <input type="checkbox" id="r-hide-applied" checked onchange="filterResults('r')"> Hide applied
+    </label>
+    <button class="btn-csv" onclick="exportCSV('r')" title="Download all results as CSV">⬇ Export CSV</button>
+    <label class="btn-csv" title="Load a saved CSV back into this tab" style="cursor:pointer">
+      📂 Load CSV<input type="file" id="r-csv-input" accept=".csv" style="display:none" onchange="loadCSV('r',this)">
     </label>
     <span id="r-count" style="color:var(--muted);font-size:0.8rem;margin-left:auto"></span>
   </div>
@@ -361,12 +371,19 @@
     </div>
     <button class="btn btn-primary" id="c-search-btn" onclick="startCompanySearch()">Search ↗</button>
     <button class="btn btn-ghost"   id="c-stop-btn"   onclick="stopCompanySearch()" style="display:none">⏹ Stop</button>
+    <label class="btn btn-ghost" title="Load a saved CSV" style="cursor:pointer;align-self:flex-end">
+      📂 Load CSV<input type="file" id="c-csv-ctrl-input" accept=".csv" style="display:none" onchange="loadCSV('c',this)">
+    </label>
   </div>
   <div class="prog-wrap" id="prog-company"></div>
   <div class="result-toolbar" id="c-toolbar" style="display:none">
     <input id="c-filter" type="text" placeholder="Filter results…" oninput="filterResults('c')">
     <label style="display:flex;align-items:center;gap:5px;font-size:0.8rem;color:var(--muted);cursor:pointer">
       <input type="checkbox" id="c-hide-applied" checked onchange="filterResults('c')"> Hide applied
+    </label>
+    <button class="btn-csv" onclick="exportCSV('c')" title="Download all results as CSV">⬇ Export CSV</button>
+    <label class="btn-csv" title="Load a saved CSV back into this tab" style="cursor:pointer">
+      📂 Load CSV<input type="file" id="c-csv-input" accept=".csv" style="display:none" onchange="loadCSV('c',this)">
     </label>
     <span id="c-count" style="color:var(--muted);font-size:0.8rem;margin-left:auto"></span>
   </div>
@@ -414,6 +431,9 @@
     </div>
     <button class="btn btn-primary" id="rc-search-btn" onclick="startRoboticsSearch()">Search All Career Pages ↗</button>
     <button class="btn btn-ghost"   id="rc-stop-btn"   onclick="stopRoboticsSearch()" style="display:none">⏹ Stop</button>
+    <label class="btn btn-ghost" title="Load a saved CSV" style="cursor:pointer;align-self:flex-end">
+      📂 Load CSV<input type="file" id="rc-csv-ctrl-input" accept=".csv" style="display:none" onchange="loadCSV('rc',this)">
+    </label>
   </div>
   <div id="rc-companies"></div>
   <div class="prog-wrap" id="prog-robotics"></div>
@@ -421,6 +441,10 @@
     <input id="rc-filter" type="text" placeholder="Filter results…" oninput="filterResults('rc')">
     <label style="display:flex;align-items:center;gap:5px;font-size:0.8rem;color:var(--muted);cursor:pointer">
       <input type="checkbox" id="rc-hide-applied" checked onchange="filterResults('rc')"> Hide applied
+    </label>
+    <button class="btn-csv" onclick="exportCSV('rc')" title="Download all results as CSV">⬇ Export CSV</button>
+    <label class="btn-csv" title="Load a saved CSV back into this tab" style="cursor:pointer">
+      📂 Load CSV<input type="file" id="rc-csv-input" accept=".csv" style="display:none" onchange="loadCSV('rc',this)">
     </label>
     <span id="rc-count" style="color:var(--muted);font-size:0.8rem;margin-left:auto"></span>
   </div>
@@ -1038,6 +1062,104 @@ function copyCL() {
   const text = document.getElementById('cl-text').value;
   if (!text) { showToast('Nothing to copy.', true); return; }
   navigator.clipboard.writeText(text).then(() => showToast('Copied to clipboard!'));
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// CSV EXPORT & LOAD
+// ══════════════════════════════════════════════════════════════════════════
+const CSV_FIELDS = ['rank','score','match_quality','title','company','location',
+  'url','source','salary','matched_keywords','date_posted','description'];
+
+function _csvCell(v) {
+  const s = String(v == null ? '' : v);
+  return '"' + s.replace(/"/g, '""') + '"';
+}
+
+function exportCSV(pfx) {
+  const jobs = DATA[pfx];
+  if (!jobs || !jobs.length) { showToast('No results to export.', true); return; }
+  const header = CSV_FIELDS.join(',');
+  const rows = jobs.map(j =>
+    CSV_FIELDS.map(f => _csvCell(j[f] ?? '')).join(',')
+  );
+  const blob = new Blob([header + '\n' + rows.join('\n')], { type: 'text/csv' });
+  const ts   = new Date().toISOString().slice(0,16).replace('T','_').replace(':','');
+  const name = `jobs_${pfx}_${ts}.csv`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast(`⬇ Exported ${jobs.length} jobs as ${name}`);
+}
+
+function loadCSV(pfx, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const lines = e.target.result.split(/\r?\n/).filter(Boolean);
+    if (lines.length < 2) { showToast('CSV seems empty.', true); input.value = ''; return; }
+
+    // Parse header
+    const hdr = _parseCsvRow(lines[0]);
+    const jobs = [];
+    for (let i = 1; i < lines.length; i++) {
+      const cols = _parseCsvRow(lines[i]);
+      const j = {};
+      hdr.forEach((h, idx) => { j[h.trim()] = cols[idx] ?? ''; });
+      // Coerce numeric fields
+      j.rank  = parseInt(j.rank)  || (i);
+      j.score = parseFloat(j.score) || 0;
+      j.applied = false; // will be enriched after render via server data
+      jobs.push(j);
+    }
+    DATA[pfx] = jobs;
+    SORTED[pfx] = { col: 'rank', asc: true };
+
+    // Show toolbar & table
+    const toolbar = document.getElementById(`${pfx}-toolbar`);
+    if (toolbar) toolbar.style.display = 'flex';
+    renderTable(pfx, DATA[pfx]);
+    showToast(`📂 Loaded ${jobs.length} jobs from ${file.name}`);
+
+    // Mark applied jobs from server in background
+    fetch('/api/applied-set').then(r => r.ok ? r.json() : null).then(set => {
+      if (!set) return;
+      const urls = new Set(set.urls || []);
+      const keys = new Set((set.keys || []).map(k => k.join('||')));
+      DATA[pfx].forEach(j => {
+        const u = (j.url || '').trim();
+        const co = (j.company || '').trim().toLowerCase();
+        const ti = (j.title   || '').trim().toLowerCase();
+        if ((u && urls.has(u)) || keys.has(`${co}||${ti}`)) j.applied = true;
+      });
+      renderTable(pfx, DATA[pfx]);
+    }).catch(() => {});
+  };
+  reader.readAsText(file);
+  input.value = ''; // reset so same file can be loaded again
+}
+
+function _parseCsvRow(line) {
+  // Simple but correct RFC-4180 parser
+  const cols = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQ) {
+      if (ch === '"') {
+        if (line[i+1] === '"') { cur += '"'; i++; }
+        else inQ = false;
+      } else { cur += ch; }
+    } else {
+      if (ch === '"') { inQ = true; }
+      else if (ch === ',') { cols.push(cur); cur = ''; }
+      else { cur += ch; }
+    }
+  }
+  cols.push(cur);
+  return cols;
 }
 
 // ── Job state map for undo ────────────────────────────────────────────────

@@ -493,6 +493,29 @@ def api_statuses():
     return jsonify([{"value": s, "emoji": STATUS_EMOJI.get(s, "")} for s in STATUSES])
 
 
+@app.route("/api/applied-set")
+def api_applied_set():
+    """Return the sets of URLs and (company, title) keys that are in the log
+    (excluding 'saved' status), for the client to mark jobs already applied to."""
+    applied_urls: set[str] = set()
+    applied_keys: list[list[str]] = []
+    try:
+        for e in json.loads(_LOG_FILE.read_text(encoding="utf-8")):
+            if (e.get("status") or "") == "saved":
+                continue
+            u = (e.get("url") or "").strip()
+            if u:
+                applied_urls.add(u)
+            co = (e.get("company") or "").strip().lower()
+            ti = re.sub(r'\s*\([mfwd\/]+\)', '',
+                        (e.get("title") or "").strip().lower())
+            if co and ti:
+                applied_keys.append([co, ti])
+    except Exception:
+        pass
+    return jsonify({"urls": list(applied_urls), "keys": applied_keys})
+
+
 @app.route("/api/applications", methods=["GET"])
 def api_list():
     status  = request.args.get("status")
