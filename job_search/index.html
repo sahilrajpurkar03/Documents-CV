@@ -79,6 +79,8 @@
   a.job-link:hover { text-decoration: underline; }
   .apply-btn { display: inline-block; background: var(--accent); color: #0f172a; border-radius: 4px; padding: 3px 10px; font-size: 0.76rem; font-weight: 700; text-decoration: none; white-space: nowrap; }
   .apply-btn:hover { opacity: 0.85; }
+  .applied-badge { display: inline-block; background: rgba(34,197,94,.15); color: #4ade80; border: 1px solid rgba(34,197,94,.3); border-radius: 4px; padding: 3px 10px; font-size: 0.76rem; font-weight: 600; white-space: nowrap; }
+  tr.row-applied td { opacity: 0.45; }
   .src-badge { display: inline-block; border-radius: 4px; padding: 1px 7px; font-size: 0.72rem; font-weight: 600; }
   .src-linkedin  { background: rgba(10,102,194,.18); color: #60a5fa; }
   .src-indeed    { background: rgba(34,197,94,.12);  color: #86efac; }
@@ -178,6 +180,9 @@
   <div id="progress-wrap"></div>
   <div class="result-toolbar" id="r-toolbar" style="display:none">
     <input id="r-filter" type="text" placeholder="Filter results…" oninput="filterResults('r')">
+    <label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;color:var(--muted);cursor:pointer;white-space:nowrap">
+      <input type="checkbox" id="r-hide-applied" checked onchange="filterResults('r')"> Hide applied
+    </label>
     <span id="r-count" style="color:var(--muted);font-size:0.82rem;margin-left:auto"></span>
     <span id="r-saved" style="color:var(--green);font-size:0.82rem"></span>
   </div>
@@ -228,6 +233,9 @@
   <div id="prog-company"></div>
   <div class="result-toolbar" id="c-toolbar" style="display:none">
     <input id="c-filter" type="text" placeholder="Filter results…" oninput="filterResults('c')">
+    <label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;color:var(--muted);cursor:pointer;white-space:nowrap">
+      <input type="checkbox" id="c-hide-applied" checked onchange="filterResults('c')"> Hide applied
+    </label>
     <span id="c-count" style="color:var(--muted);font-size:0.82rem;margin-left:auto"></span>
     <span id="c-saved" style="color:var(--green);font-size:0.82rem"></span>
   </div>
@@ -259,6 +267,9 @@
     <select id="browse-file-sel" onchange="loadBrowseFile()">
       <option value="">— select a file —</option>
     </select>
+    <label style="display:flex;align-items:center;gap:5px;font-size:0.82rem;color:var(--muted);cursor:pointer;white-space:nowrap">
+      <input type="checkbox" id="b-hide-applied" checked onchange="filterResults('b')"> Hide applied
+    </label>
     <span id="browse-count" style="color:var(--muted);font-size:0.82rem"></span>
     <input id="b-filter" type="text" placeholder="Filter…" oninput="filterResults('b')" style="margin-left:auto;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:7px 12px;border-radius:6px;font-size:0.88rem;width:200px">
   </div>
@@ -527,8 +538,9 @@ function renderTable(pfx, jobs) {
     const srcBadge = `<span class="src-badge src-${srcKey}">${esc(j.source || '—')}</span>`;
     const typeStr  = (j.job_type || '').replace(/_/g,' ') || '—';
     const salStr   = j.salary || '—';
-    const applyBtn = j.url
-      ? `<a class="apply-btn" href="${esc(j.url)}" target="_blank">Apply ↗</a>` : '—';
+    const applyBtn = j.applied
+      ? `<span class="applied-badge">✓ Applied</span>`
+      : (j.url ? `<a class="apply-btn" href="${esc(j.url)}" target="_blank">Apply ↗</a>` : '—');
     const bar    = `<span class="score-bar" style="width:${Math.min(score,100)*0.36}px"></span>`;
 
     // Score breakdown tooltip
@@ -552,6 +564,7 @@ function renderTable(pfx, jobs) {
     }
 
     const tr = document.createElement('tr');
+    if (j.applied) tr.className = 'row-applied';
     tr.innerHTML = `
       <td class="col-rank">${j.rank}</td>
       <td class="col-score score-cell"><span class="${qCls}">${score.toFixed(1)}</span>${bar}${tipHtml}</td>
@@ -571,9 +584,12 @@ function renderTable(pfx, jobs) {
 function applyFilter(pfx, jobs) {
   const filterEl = document.getElementById(pfx === 'b' ? 'b-filter' : `${pfx}-filter`);
   const q = filterEl ? filterEl.value.toLowerCase() : '';
-  let rows = q
-    ? jobs.filter(j => `${j.title} ${j.company} ${j.location} ${j.matched_keywords} ${j.salary} ${j.job_type}`.toLowerCase().includes(q))
-    : jobs;
+  const hideApplied = document.getElementById(`${pfx}-hide-applied`)?.checked ?? true;
+  let rows = jobs.filter(j => {
+    if (hideApplied && j.applied) return false;
+    if (q && !`${j.title} ${j.company} ${j.location} ${j.matched_keywords} ${j.salary} ${j.job_type}`.toLowerCase().includes(q)) return false;
+    return true;
+  });
   const s = SORTED[pfx];
   rows = [...rows].sort((a, b) => {
     let va = a[s.col] || '', vb = b[s.col] || '';

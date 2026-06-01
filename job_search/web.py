@@ -38,10 +38,46 @@ from cv_parser import parse_cv
 
 app = Flask(__name__)
 
-_CV_PATH = str(_ROOT / "main.tex")
+_CV_PATH  = str(_ROOT / "main.tex")
+_LOG_FILE = _ROOT / "log" / "applications.json"
 
 def _load_cv():
     return parse_cv(_CV_PATH)
+
+def _applied_set():
+    """Return (applied_urls, applied_keys) from the log.
+    applied_urls — set of job URLs already logged
+    applied_keys — set of (company_lower, title_lower_normalised) pairs
+    """
+    applied_urls: set = set()
+    applied_keys: set = set()
+    if not _LOG_FILE.exists():
+        return applied_urls, applied_keys
+    try:
+        entries = json.loads(_LOG_FILE.read_text(encoding="utf-8"))
+        for e in entries:
+            u = (e.get("url") or "").strip()
+            if u:
+                applied_urls.add(u)
+            co = (e.get("company") or "").strip().lower()
+            ti = (e.get("title")   or "").strip().lower()
+            # strip gender suffixes like (m/f/d)
+            import re as _re
+            ti = _re.sub(r'\s*\([mfwd\/]+\)', '', ti).strip()
+            if co and ti:
+                applied_keys.add((co, ti))
+    except Exception:
+        pass
+    return applied_urls, applied_keys
+
+def _is_applied(job: dict, applied_urls: set, applied_keys: set) -> bool:
+    url = (job.get("url") or "").strip()
+    if url and url in applied_urls:
+        return True
+    co  = (job.get("company") or "").strip().lower()
+    import re as _re
+    ti  = _re.sub(r'\s*\([mfwd\/]+\)', '', (job.get("title") or "").strip().lower())
+    return bool(co and ti and (co, ti) in applied_keys)
 
 # ── Serve SPA ─────────────────────────────────────────────────────────────
 @app.route("/")
@@ -71,10 +107,11 @@ def api_jobs():
     path = _ROOT / filename
     if not path.exists():
         return jsonify({"error": "File not found"}), 404
+    applied_urls, applied_keys = _applied_set()
     jobs = []
     with open(path, encoding="utf-8", newline="") as f:
         for i, row in enumerate(csv.DictReader(f), 1):
-            jobs.append({
+            job = {
                 "rank":             row.get("rank", i),
                 "score":            row.get("score", ""),
                 "match_quality":    row.get("match_quality", ""),
@@ -87,7 +124,9 @@ def api_jobs():
                 "salary":           row.get("salary", ""),
                 "matched_keywords": row.get("matched_keywords", ""),
                 "url":              row.get("url", ""),
-            })
+            }
+            job["applied"] = _is_applied(job, applied_urls, applied_keys)
+            jobs.append(job)
     return jsonify(jobs)
 
 # ── Region search (streaming SSE so browser sees live progress) ────────────
@@ -190,9 +229,10 @@ def api_search():
                 row["rank"] = i
                 writer.writerow(row)
 
+        applied_urls, applied_keys = _applied_set()
         jobs_out = []
         for i, j in enumerate(ranked, 1):
-            jobs_out.append({
+            jd = {
                 "rank": i, "score": round(j.score, 1),
                 "match_quality": score_label(j.score),
                 "title": j.title, "company": j.company,
@@ -202,7 +242,9 @@ def api_search():
                 "matched_keywords": ", ".join(j.matched_keywords[:10]),
                 "url": j.url,
                 "score_breakdown": getattr(j, "_score_breakdown", {}),
-            })
+            }
+            jd["applied"] = _is_applied(jd, applied_urls, applied_keys)
+            jobs_out.append(jd)
         yield from send("done", {
             "jobs": jobs_out, "csv_file": csv_file.name,
             "total": len(listings_raw), "unique": len(listings),
@@ -270,9 +312,10 @@ def api_search_company():
                 row["rank"] = i
                 writer.writerow(row)
 
+        applied_urls, applied_keys = _applied_set()
         jobs_out = []
         for i, j in enumerate(ranked, 1):
-            jobs_out.append({
+            jd = {
                 "rank": i, "score": round(j.score, 1),
                 "match_quality": score_label(j.score),
                 "title": j.title, "company": j.company,
@@ -282,7 +325,9 @@ def api_search_company():
                 "matched_keywords": ", ".join(j.matched_keywords[:10]),
                 "url": j.url,
                 "score_breakdown": getattr(j, "_score_breakdown", {}),
-            })
+            }
+            jd["applied"] = _is_applied(jd, applied_urls, applied_keys)
+            jobs_out.append(jd)
         yield from send("done", {"jobs": jobs_out, "csv_file": csv_file.name,
                                   "total": len(listings)})
 
