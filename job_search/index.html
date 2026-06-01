@@ -470,8 +470,9 @@ function handleRegionEvent(obj) {
     DATA.r = obj.jobs || [];
     renderTable('r', DATA.r);
     document.getElementById('r-saved').textContent = obj.csv_file ? `Saved: ${obj.csv_file}` : '';
+    const excl  = obj.applied_excluded ? ` → ${obj.applied_excluded} applied excluded` : '';
     const stats = obj.relevant != null
-      ? `✓ Done — ${obj.total} scraped → ${obj.unique} unique → ${obj.relevant} relevant → ${DATA.r.length} ranked`
+      ? `✓ Done — ${obj.total} scraped → ${obj.unique} unique${excl} → ${obj.relevant} relevant → ${DATA.r.length} ranked`
       : `✓ Done — ${DATA.r.length} ranked jobs`;
     const d = document.createElement('div');
     d.className = 'prog-line done';
@@ -658,7 +659,8 @@ function handleRoboticsEvent(obj) {
     DATA.rc = obj.jobs || [];
     renderTable('rc', DATA.rc);
     document.getElementById('rc-saved').textContent = obj.csv_file ? `Saved: ${obj.csv_file}` : '';
-    const stats = `✓ Done — ${obj.total} scraped → ${obj.unique} unique → ${obj.relevant} relevant → ${DATA.rc.length} ranked`;
+    const rExcl = obj.applied_excluded ? ` → ${obj.applied_excluded} applied excluded` : '';
+    const stats = `✓ Done — ${obj.total} scraped → ${obj.unique} unique${rExcl} → ${obj.relevant} relevant → ${DATA.rc.length} ranked`;
     const d = document.createElement('div');
     d.className = 'prog-line done'; d.textContent = stats;
     prog.appendChild(d);

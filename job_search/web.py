@@ -210,9 +210,16 @@ def api_search():
 
         # Cross-search deduplication
         listings = deduplicate_by_title(listings_raw)
-        relevant = [j for j in listings if is_relevant(j)]
-        yield from send("status", {"text": f"Scoring {len(relevant)}/{len(listings)} relevant listings..."})
-        ranked = rank_listings(listings, cv, top_n=top_n)
+
+        # Exclude already-applied jobs BEFORE ranking so top_n = top_n fresh results
+        applied_urls, applied_keys = _applied_set()
+        listings_fresh = [j for j in listings if not _is_applied(j.to_dict(), applied_urls, applied_keys)]
+        applied_excluded = len(listings) - len(listings_fresh)
+
+        relevant = [j for j in listings_fresh if is_relevant(j)]
+        excl_txt = f" ({applied_excluded} applied excluded)" if applied_excluded else ""
+        yield from send("status", {"text": f"Scoring {len(relevant)}/{len(listings_fresh)} relevant listings{excl_txt}..."})
+        ranked = rank_listings(listings_fresh, cv, top_n=top_n)
 
         # Save CSV
         from datetime import datetime as _dt
@@ -231,7 +238,6 @@ def api_search():
                 row["rank"] = i
                 writer.writerow(row)
 
-        applied_urls, applied_keys = _applied_set()
         jobs_out = []
         for i, j in enumerate(ranked, 1):
             jd = {
@@ -245,12 +251,13 @@ def api_search():
                 "url": j.url,
                 "score_breakdown": getattr(j, "_score_breakdown", {}),
             }
-            jd["applied"] = _is_applied(jd, applied_urls, applied_keys)
+            jd["applied"] = False
             jobs_out.append(jd)
         yield from send("done", {
             "jobs": jobs_out, "csv_file": csv_file.name,
             "total": len(listings_raw), "unique": len(listings),
-            "relevant": len(relevant), "errors": errors,
+            "relevant": len(relevant), "applied_excluded": applied_excluded,
+            "errors": errors,
         })
 
     return Response(stream_with_context(generate()),
@@ -294,8 +301,13 @@ def api_search_company():
         except Exception as e:
             yield from send("error", {"text": str(e)}); return
 
-        yield from send("progress", {"text": f"Found {len(listings)} listings — scoring..."})
-        ranked = rank_listings(listings, cv, top_n=top_n)
+        # Exclude already-applied before ranking
+        applied_urls, applied_keys = _applied_set()
+        listings_fresh = [j for j in listings if not _is_applied(j.to_dict(), applied_urls, applied_keys)]
+        applied_excluded = len(listings) - len(listings_fresh)
+        excl_txt = f" ({applied_excluded} applied excluded)" if applied_excluded else ""
+        yield from send("progress", {"text": f"Found {len(listings_fresh)} fresh listings{excl_txt} — scoring..."})
+        ranked = rank_listings(listings_fresh, cv, top_n=top_n)
 
         # Save CSV
         from datetime import datetime as _dt
@@ -314,7 +326,6 @@ def api_search_company():
                 row["rank"] = i
                 writer.writerow(row)
 
-        applied_urls, applied_keys = _applied_set()
         jobs_out = []
         for i, j in enumerate(ranked, 1):
             jd = {
@@ -328,10 +339,10 @@ def api_search_company():
                 "url": j.url,
                 "score_breakdown": getattr(j, "_score_breakdown", {}),
             }
-            jd["applied"] = _is_applied(jd, applied_urls, applied_keys)
+            jd["applied"] = False
             jobs_out.append(jd)
         yield from send("done", {"jobs": jobs_out, "csv_file": csv_file.name,
-                                  "total": len(listings)})
+                                  "total": len(listings), "applied_excluded": applied_excluded})
 
     return Response(stream_with_context(generate()),
                     mimetype="text/event-stream",
@@ -425,9 +436,16 @@ def api_search_robotics_companies():
             yield from send("progress", {"text": f"   → {added} jobs at {name}"})
 
         listings = deduplicate_by_title(all_listings)
-        relevant = [j for j in listings if is_relevant(j)]
-        yield from send("status", {"text": f"Scoring {len(relevant)}/{len(listings)} relevant listings..."})
-        ranked = rank_listings(listings, cv, top_n=top_n)
+
+        # Exclude already-applied before ranking
+        applied_urls, applied_keys = _applied_set()
+        listings_fresh = [j for j in listings if not _is_applied(j.to_dict(), applied_urls, applied_keys)]
+        applied_excluded = len(listings) - len(listings_fresh)
+
+        relevant = [j for j in listings_fresh if is_relevant(j)]
+        excl_txt = f" ({applied_excluded} applied excluded)" if applied_excluded else ""
+        yield from send("status", {"text": f"Scoring {len(relevant)}/{len(listings_fresh)} relevant listings{excl_txt}..."})
+        ranked = rank_listings(listings_fresh, cv, top_n=top_n)
 
         # Save CSV
         from datetime import datetime as _dt
@@ -445,7 +463,6 @@ def api_search_robotics_companies():
                 row["rank"] = i
                 writer.writerow(row)
 
-        applied_urls, applied_keys = _applied_set()
         jobs_out = []
         for i, j in enumerate(ranked, 1):
             jd = {
@@ -459,13 +476,13 @@ def api_search_robotics_companies():
                 "url": j.url,
                 "score_breakdown": getattr(j, "_score_breakdown", {}),
             }
-            jd["applied"] = _is_applied(jd, applied_urls, applied_keys)
+            jd["applied"] = False
             jobs_out.append(jd)
 
         yield from send("done", {
             "jobs": jobs_out, "csv_file": csv_file.name,
             "total": len(all_listings), "unique": len(listings),
-            "relevant": len(relevant),
+            "relevant": len(relevant), "applied_excluded": applied_excluded,
         })
 
     return Response(stream_with_context(generate()),
