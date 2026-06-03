@@ -493,6 +493,24 @@ def api_statuses():
     return jsonify([{"value": s, "emoji": STATUS_EMOJI.get(s, "")} for s in STATUSES])
 
 
+@app.route("/api/export-csv", methods=["POST"])
+def api_export_csv():
+    data     = request.get_json(force=True)
+    filename = (data.get("filename") or "jobs_export.csv").strip()
+    content  = data.get("content", "")
+    # Sanitise filename — allow only safe chars
+    import re as _re
+    filename = _re.sub(r'[^\w\-.]', '_', filename)
+    if not filename.endswith('.csv'):
+        filename += '.csv'
+    dest = _ROOT / filename
+    try:
+        dest.write_text(content, encoding="utf-8")
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    return jsonify({"path": str(dest), "filename": filename})
+
+
 @app.route("/api/applied-set")
 def api_applied_set():
     """Return the sets of URLs and (company, title) keys that are in the log
