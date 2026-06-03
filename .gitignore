@@ -48,4 +48,5 @@ Thumbs.db
 
 # ── Machine-specific git helper scripts (WSL/NTFS workaround) ────────────
 _fix_git.sh
+job_search/_install_gh.sh
 _gitcmd.sh
