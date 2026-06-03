@@ -22,7 +22,14 @@ echo "  │   Installing / checking Python dependencies…                   │
 echo "  └────────────────────────────────────────────────────────────────┘"
 echo ""
 
-python3 -m pip install -q flask requests beautifulsoup4 python-jobspy rich
+python3 - <<'PYCHECK'
+import importlib, subprocess, sys
+needed = ["flask", "requests", "bs4", "jobspy", "rich"]
+missing = [p for p in needed if importlib.util.find_spec(p) is None]
+if missing:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "-q",
+        "flask", "requests", "beautifulsoup4", "python-jobspy", "rich"])
+PYCHECK
 
 echo ""
 echo "  ┌────────────────────────────────────────────────────────────────┐"
